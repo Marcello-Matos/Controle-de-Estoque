@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { ArrowLeftRight, History, LayoutDashboard, LogOut, Package, PackagePlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
+import TemaToggle from './TemaToggle';
 
 const LINKS = [
   { to: '/', texto: 'Painel', icone: LayoutDashboard, end: true },
@@ -26,6 +27,7 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <TemaToggle className="nav-botao" comTexto />
         <div className="usuario-box">
           <div className="avatar">{usuario.nome.charAt(0).toUpperCase()}</div>
           <div className="usuario-info">

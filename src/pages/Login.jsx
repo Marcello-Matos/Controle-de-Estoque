@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import IlustracaoEstoque from '../components/IlustracaoEstoque';
 import Logo from '../components/Logo';
+import TemaToggle from '../components/TemaToggle';
 import './Login.css';
 
 const RECURSOS = [
@@ -112,6 +113,7 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <TemaToggle className="botao-icone login-tema" />
       <section className="login-hero">
         <div className="hero-texto">
           <h1>Seu estoque<br />sempre no <span>controle.</span></h1>
