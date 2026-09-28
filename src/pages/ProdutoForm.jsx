@@ -3,7 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { atualizarProduto, buscarProduto, cadastrarProduto } from '../services/estoque';
 import { mensagemErro } from '../utils';
+import { ArrowLeft, PackagePlus, Save } from 'lucide-react';
 import Mensagem from '../components/Mensagem';
+import PaginaTopo from '../components/PaginaTopo';
 
 const VAZIO = {
   nome: '', descricao: '', categoria: '', codigoBarras: '',
@@ -67,29 +69,37 @@ export default function ProdutoForm() {
 
   return (
     <>
-      <h2>{editando ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h2>
+      <PaginaTopo
+        titulo={editando ? 'Editar Produto' : 'Cadastrar Produto'}
+        subtitulo={editando ? 'Atualize as informações do produto.' : 'Preencha os dados do novo item do estoque.'}
+      />
       <Mensagem mensagem={mensagem} />
-      <form onSubmit={handleSubmit}>
-        <label>Nome:<input type="text" maxLength={150} required {...campo('nome')} /></label>
-        <label>Descrição:<textarea maxLength={2000} {...campo('descricao')} /></label>
-        <label>Categoria:<input type="text" maxLength={100} {...campo('categoria')} /></label>
-        <label>Código de Barras:<input type="text" maxLength={50} {...campo('codigoBarras')} /></label>
-        {editando ? (
-          <p className="info">
-            Quantidade em estoque: <strong>{form.quantidade}</strong> (altere pela tela de{' '}
-            <Link to="/movimentar">movimentação</Link>)
-          </p>
-        ) : (
-          <label>Quantidade inicial:<input type="number" min="0" step="1" required {...campo('quantidade')} /></label>
-        )}
-        <label>Estoque Mínimo:<input type="number" min="0" step="1" {...campo('estoqueMinimo')} /></label>
-        <label>Preço de Compra:<input type="number" min="0" step="0.01" {...campo('precoCompra')} /></label>
-        <label>Preço de Venda:<input type="number" min="0" step="0.01" {...campo('precoVenda')} /></label>
-        <button type="submit" className="primary-btn" disabled={salvando}>
-          {salvando ? 'Salvando...' : editando ? 'Salvar Alterações' : 'Cadastrar Produto'}
-        </button>
+      <form onSubmit={handleSubmit} className="card">
+        <div className="form-grid">
+          <label className="inteiro">Nome<input type="text" maxLength={150} required placeholder="Ex.: Notebook Pro 14" {...campo('nome')} /></label>
+          <label className="inteiro">Descrição<textarea maxLength={2000} placeholder="Detalhes do produto (opcional)" {...campo('descricao')} /></label>
+          <label>Categoria<input type="text" maxLength={100} placeholder="Ex.: Informática" {...campo('categoria')} /></label>
+          <label>Código de Barras<input type="text" maxLength={50} placeholder="Opcional" {...campo('codigoBarras')} /></label>
+          {editando ? (
+            <p className="info">
+              Quantidade em estoque: <strong>{form.quantidade}</strong>. Altere pela tela de{' '}
+              <Link to="/movimentar" state={{ produtoId: id }}>movimentação</Link>.
+            </p>
+          ) : (
+            <label>Quantidade inicial<input type="number" min="0" step="1" required placeholder="0" {...campo('quantidade')} /></label>
+          )}
+          <label>Estoque Mínimo<input type="number" min="0" step="1" placeholder="0" {...campo('estoqueMinimo')} /></label>
+          <label>Preço de Compra (R$)<input type="number" min="0" step="0.01" placeholder="0,00" {...campo('precoCompra')} /></label>
+          <label>Preço de Venda (R$)<input type="number" min="0" step="0.01" placeholder="0,00" {...campo('precoVenda')} /></label>
+        </div>
+        <div className="form-acoes">
+          <button type="submit" className="primary-btn" disabled={salvando}>
+            {editando ? <Save size={18} /> : <PackagePlus size={18} />}
+            {salvando ? 'Salvando...' : editando ? 'Salvar Alterações' : 'Cadastrar Produto'}
+          </button>
+          {editando && <Link to="/produtos" className="secondary-btn"><ArrowLeft size={18} /> Voltar à lista</Link>}
+        </div>
       </form>
-      {editando && <p><Link to="/produtos">← Voltar à lista</Link></p>}
     </>
   );
 }

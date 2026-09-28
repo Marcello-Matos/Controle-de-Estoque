@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { excluirProduto, observarProdutos } from '../services/estoque';
 import { formatarMoeda, mensagemErro } from '../utils';
 import Mensagem from '../components/Mensagem';
+import PaginaTopo from '../components/PaginaTopo';
 
 export default function Produtos() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [produtos, setProdutos] = useState(null);
   const [filtro, setFiltro] = useState('');
   const [mensagem, setMensagem] = useState(location.state?.mensagem ?? null);
@@ -30,51 +33,67 @@ export default function Produtos() {
 
   return (
     <>
-      <h2>Produtos em Estoque</h2>
+      <PaginaTopo titulo="Produtos" subtitulo="Todos os itens do seu estoque, atualizados em tempo real.">
+        <Link to="/produtos/novo" className="primary-btn"><Plus size={18} /> Novo produto</Link>
+      </PaginaTopo>
       <Mensagem mensagem={mensagem} />
 
-      <label>Buscar por nome:
-        <input type="text" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Digite para filtrar..." />
-      </label>
-
-      {produtos === null ? (
-        <p className="carregando">Carregando...</p>
-      ) : (
-        <div className="tabela-rolagem">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Categoria</th>
-                <th>Qtd</th>
-                <th>Estoque Mínimo</th>
-                <th>Preço Compra</th>
-                <th>Preço Venda</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map((p) => (
-                <tr key={p.id} className={p.quantidade < p.estoqueMinimo ? 'baixo-estoque' : ''}>
-                  <td>{p.nome}</td>
-                  <td>{p.categoria}</td>
-                  <td>{p.quantidade}</td>
-                  <td>{p.estoqueMinimo}</td>
-                  <td>{formatarMoeda(p.precoCompra)}</td>
-                  <td>{formatarMoeda(p.precoVenda)}</td>
-                  <td className="acoes">
-                    <Link to={`/produtos/${p.id}/editar`}>Editar</Link>
-                    <button type="button" className="link-botao perigo" onClick={() => handleExcluir(p)}>Excluir</button>
-                  </td>
-                </tr>
-              ))}
-              {visiveis.length === 0 && (
-                <tr><td colSpan={7}>Nenhum produto encontrado.</td></tr>
-              )}
-            </tbody>
-          </table>
+      <div className="card">
+        <div className="filtros">
+          <div className="campo-icone">
+            <Search size={18} />
+            <input type="text" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar produto por nome..." aria-label="Buscar por nome" />
+          </div>
         </div>
-      )}
+
+        {produtos === null ? (
+          <p className="carregando">Carregando...</p>
+        ) : (
+          <div className="tabela-rolagem">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Categoria</th>
+                  <th className="numero">Qtd</th>
+                  <th className="numero">Mínimo</th>
+                  <th className="numero">Preço Compra</th>
+                  <th className="numero">Preço Venda</th>
+                  <th className="numero">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiveis.map((p) => {
+                  const critico = p.quantidade < p.estoqueMinimo;
+                  return (
+                    <tr key={p.id} className={critico ? 'baixo-estoque' : ''}>
+                      <td className="nome-produto">{p.nome}</td>
+                      <td>{p.categoria || '—'}</td>
+                      <td className="numero">{critico ? <span className="badge critico">{p.quantidade}</span> : p.quantidade}</td>
+                      <td className="numero">{p.estoqueMinimo}</td>
+                      <td className="numero">{formatarMoeda(p.precoCompra)}</td>
+                      <td className="numero">{formatarMoeda(p.precoVenda)}</td>
+                      <td>
+                        <div className="acoes">
+                          <button type="button" className="botao-icone" title="Editar" aria-label={`Editar ${p.nome}`} onClick={() => navigate(`/produtos/${p.id}/editar`)}>
+                            <Pencil size={17} />
+                          </button>
+                          <button type="button" className="botao-icone perigo" title="Excluir" aria-label={`Excluir ${p.nome}`} onClick={() => handleExcluir(p)}>
+                            <Trash2 size={17} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {visiveis.length === 0 && (
+                  <tr><td colSpan={7} className="vazio">Nenhum produto encontrado.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </>
   );
 }

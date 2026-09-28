@@ -1,24 +1,43 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { ArrowLeftRight, History, LayoutDashboard, LogOut, Package, PackagePlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import Logo from './Logo';
+
+const LINKS = [
+  { to: '/', texto: 'Painel', icone: LayoutDashboard, end: true },
+  { to: '/produtos', texto: 'Produtos', icone: Package, end: true },
+  { to: '/produtos/novo', texto: 'Cadastrar Produto', icone: PackagePlus },
+  { to: '/movimentar', texto: 'Movimentar', icone: ArrowLeftRight },
+  { to: '/historico', texto: 'Histórico', icone: History },
+];
 
 export default function Layout() {
   const { usuario, sair } = useAuth();
 
   return (
-    <div className="container">
-      <header>
-        <span>Controle de Estoque</span>
-        <small>Olá, {usuario.nome}!</small>
-      </header>
-      <nav className="menu">
-        <NavLink to="/" end>🏠 Painel</NavLink>
-        <NavLink to="/produtos/novo">➕ Cadastrar Produto</NavLink>
-        <NavLink to="/movimentar">🔄 Movimentar Produto</NavLink>
-        <NavLink to="/produtos" end>📦 Listar Produtos</NavLink>
-        <NavLink to="/historico">🧾 Histórico</NavLink>
-        <button type="button" className="link-botao" onClick={sair}>⏻ Sair</button>
-      </nav>
-      <main>
+    <div className="app">
+      <aside className="sidebar">
+        <Logo className="marca" />
+        <nav className="nav">
+          {LINKS.map(({ to, texto, icone: Icone, end }) => (
+            <NavLink key={to} to={to} end={end}>
+              <Icone size={20} strokeWidth={1.8} />
+              <span>{texto}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="usuario-box">
+          <div className="avatar">{usuario.nome.charAt(0).toUpperCase()}</div>
+          <div className="usuario-info">
+            <strong>{usuario.nome}</strong>
+            <small>{usuario.email}</small>
+          </div>
+          <button type="button" className="botao-icone" onClick={sair} aria-label="Sair" title="Sair">
+            <LogOut size={18} />
+          </button>
+        </div>
+      </aside>
+      <main className="conteudo">
         <Outlet />
       </main>
     </div>

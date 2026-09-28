@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import IlustracaoEstoque from '../components/IlustracaoEstoque';
+import Logo from '../components/Logo';
 import './Login.css';
-
-const NOME_SISTEMA = 'StockPro';
 
 const RECURSOS = [
   { icone: Package, texto: 'Produtos' },
@@ -36,27 +35,6 @@ const ERROS_AUTH = {
 
 function traduzirErro(err) {
   return ERROS_AUTH[err.message] || ERROS_AUTH[err.code] || 'E-mail ou senha inválidos.';
-}
-
-function LogoIcone() {
-  return (
-    <svg viewBox="0 0 48 48" className="logo-icone" aria-hidden="true">
-      <defs>
-        <linearGradient id="logoA" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#60a5fa" />
-          <stop offset="1" stopColor="#4f46e5" />
-        </linearGradient>
-        <linearGradient id="logoB" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#3730a3" />
-        </linearGradient>
-      </defs>
-      <polygon points="24,3 44,14 24,25 4,14" fill="url(#logoA)" />
-      <polygon points="4,14 24,25 24,46 4,35" fill="url(#logoB)" />
-      <polygon points="44,14 24,25 24,46 44,35" fill="#312e81" />
-      <polygon points="14,19 24,24.5 24,34 14,28.5" fill="#a5b4fc" opacity="0.35" />
-    </svg>
-  );
 }
 
 function GoogleIcone() {
@@ -158,13 +136,7 @@ export default function Login() {
 
       <section className="login-lado">
         <div className="login-card">
-          <div className="login-marca">
-            <LogoIcone />
-            <div>
-              <strong>{NOME_SISTEMA}</strong>
-              <small>Controle de Estoque</small>
-            </div>
-          </div>
+          <Logo />
 
           <h2>{criando ? 'Crie sua conta' : 'Bem-vindo de volta!'}</h2>
           <p className="login-sub">{criando ? 'Preencha os dados para solicitar acesso' : 'Faça login na sua conta para continuar.'}</p>
