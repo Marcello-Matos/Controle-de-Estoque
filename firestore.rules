@@ -1,0 +1,108 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Só usuários autenticados E cadastrados em /usuarios (pelo administrador no console) têm acesso.
+    function autorizado() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function nomeUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nome;
+    }
+
+    function caminhoProduto(id) {
+      return /databases/$(database)/documents/produtos/$(id);
+    }
+
+    function caminhoMovimentacao(id) {
+      return /databases/$(database)/documents/movimentacoes/$(id);
+    }
+
+    // A movimentação deste produto é criada nesta mesma operação (batch/transação).
+    function movimentacaoNova(id, produtoId) {
+      return id is string
+        && !exists(caminhoMovimentacao(id))
+        && existsAfter(caminhoMovimentacao(id))
+        && getAfter(caminhoMovimentacao(id)).data.produtoId == produtoId;
+    }
+
+    function produtoValido(d) {
+      return d.keys().hasAll(['nome', 'descricao', 'categoria', 'codigoBarras', 'quantidade',
+          'estoqueMinimo', 'precoCompra', 'precoVenda', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
+        && d.keys().hasOnly(['nome', 'descricao', 'categoria', 'codigoBarras', 'quantidade',
+          'estoqueMinimo', 'precoCompra', 'precoVenda', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
+        && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 150
+        && d.descricao is string && d.descricao.size() <= 2000
+        && d.categoria is string && d.categoria.size() <= 100
+        && (d.codigoBarras == null || (d.codigoBarras is string && d.codigoBarras.size() <= 50))
+        && d.quantidade is int && d.quantidade >= 0
+        && d.estoqueMinimo is int && d.estoqueMinimo >= 0
+        && d.precoCompra is number && d.precoCompra >= 0
+        && d.precoVenda is number && d.precoVenda >= 0
+        && d.atualizadoEm == request.time;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /produtos/{produtoId} {
+      allow read: if autorizado();
+
+      // Estoque inicial > 0 exige uma movimentação de entrada criada junto.
+      allow create: if autorizado()
+        && produtoValido(request.resource.data)
+        && request.resource.data.criadoEm == request.time
+        && ((request.resource.data.quantidade == 0 && request.resource.data.ultimaMovimentacaoId == null)
+          || (request.resource.data.quantidade > 0 && movimentacaoNova(request.resource.data.ultimaMovimentacaoId, produtoId)));
+
+      // A quantidade só muda junto com o registro de uma movimentação.
+      allow update: if autorizado()
+        && produtoValido(request.resource.data)
+        && request.resource.data.criadoEm == resource.data.criadoEm
+        && ((request.resource.data.quantidade == resource.data.quantidade
+            && request.resource.data.ultimaMovimentacaoId == resource.data.ultimaMovimentacaoId)
+          || movimentacaoNova(request.resource.data.ultimaMovimentacaoId, produtoId));
+
+      // Produtos com movimentações não podem ser excluídos (preserva o histórico).
+      allow delete: if autorizado() && resource.data.ultimaMovimentacaoId == null;
+    }
+
+    match /movimentacoes/{movId} {
+      allow read: if autorizado();
+
+      allow create: if autorizado()
+        && request.resource.data.keys().hasAll(['produtoId', 'produtoNome', 'tipo', 'quantidade',
+          'responsavel', 'responsavelUid', 'observacoes', 'data'])
+        && request.resource.data.keys().hasOnly(['produtoId', 'produtoNome', 'tipo', 'quantidade',
+          'responsavel', 'responsavelUid', 'observacoes', 'data'])
+        && request.resource.data.tipo in ['entrada', 'saida']
+        && request.resource.data.quantidade is int && request.resource.data.quantidade > 0
+        && request.resource.data.observacoes is string && request.resource.data.observacoes.size() <= 1000
+        && request.resource.data.responsavelUid == request.auth.uid
+        && request.resource.data.responsavel == nomeUsuario()
+        && request.resource.data.data == request.time
+        && movimentacaoConsistente(movId, request.resource.data);
+
+      // Histórico é imutável.
+      allow update, delete: if false;
+    }
+
+    // O produto precisa ser atualizado na mesma operação, com a quantidade exata.
+    function movimentacaoConsistente(movId, m) {
+      let caminho = caminhoProduto(m.produtoId);
+      let depois = getAfter(caminho).data;
+      let antes = exists(caminho) ? get(caminho).data.quantidade : 0;
+      return m.produtoId is string
+        && existsAfter(caminho)
+        && depois.ultimaMovimentacaoId == movId
+        && depois.nome == m.produtoNome
+        && ((m.tipo == 'entrada' && depois.quantidade == antes + m.quantidade)
+          || (m.tipo == 'saida' && depois.quantidade == antes - m.quantidade));
+    }
+  }
+}

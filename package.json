@@ -1,0 +1,27 @@
+{
+  "name": "controle-estoque-firebase",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "emuladores": "firebase emulators:start --only auth,firestore --project demo-estoque",
+    "test": "firebase emulators:exec --only auth,firestore --project demo-estoque \"vitest run\"",
+    "deploy": "npm run build && firebase deploy"
+  },
+  "dependencies": {
+    "firebase": "12.19.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.18.4"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "@vitejs/plugin-react": "4.7.0",
+    "firebase-tools": "15.30.2",
+    "vite": "6.4.3",
+    "vitest": "3.2.7"
+  }
+}
