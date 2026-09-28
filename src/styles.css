@@ -243,14 +243,6 @@ header small {
   opacity: 0.9;
 }
 
-.login header {
-  justify-content: center;
-}
-
-.login {
-  max-width: 480px;
-}
-
 .menu {
   display: flex;
   flex-wrap: wrap;

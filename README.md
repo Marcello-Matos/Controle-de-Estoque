@@ -3,7 +3,7 @@
 Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Authentication** e **Cloud Firestore**, com hospedagem no **Firebase Hosting**.
 
 ## Funcionalidades
-- Login com e-mail e senha (somente usuários autorizados pelo administrador)
+- Login com e-mail/senha ou Google, "lembrar de mim", recuperação de senha e criação de conta (o acesso só é liberado pelo administrador)
 - Painel com total de produtos, produtos em estoque crítico e total de movimentações
 - Cadastro, edição, listagem (em tempo real) e exclusão de produtos
 - Entradas e saídas com bloqueio de estoque negativo (transação)
@@ -15,7 +15,8 @@ Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Au
 
 ## 1. Criar o projeto no Firebase (uma única vez)
 1. Acesse https://console.firebase.google.com e clique em **Adicionar projeto**.
-2. **Authentication** > Primeiros passos > aba **Método de login** > ative **E-mail/senha**.
+2. **Authentication** > Primeiros passos > aba **Método de login** > ative **E-mail/senha** e **Google**.
+   Ao publicar em outro domínio, adicione-o em **Authentication > Configurações > Domínios autorizados**.
 3. **Firestore Database** > **Criar banco de dados** > escolha a região (ex.: `southamerica-east1`) > modo **produção**.
 4. **Configurações do projeto** (engrenagem) > **Seus apps** > ícone **Web (`</>`)** > registre o app.
    Copie os valores do `firebaseConfig`.
@@ -27,10 +28,10 @@ Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Au
    npx firebase deploy --only firestore   # publica regras e índices
    ```
 
-## 2. Criar usuários
-O sistema não tem cadastro público — só entra quem o administrador autorizar:
-1. **Authentication** > **Usuários** > **Adicionar usuário** (e-mail e senha). Copie o **UID do usuário**.
-2. **Firestore** > **Iniciar coleção** `usuarios` > **ID do documento** = UID copiado >
+## 2. Liberar usuários
+Qualquer pessoa pode **criar conta** (e-mail/senha ou Google) na tela de login, mas só entra no sistema quem o administrador liberar:
+1. A conta aparece em **Authentication** > **Usuários** (ou o admin cria em **Adicionar usuário**). Copie o **UID do usuário**.
+2. **Firestore** > coleção `usuarios` > **Adicionar documento** > **ID do documento** = UID copiado >
    campo `nome` (string) = nome da pessoa (aparece como "responsável" nas movimentações).
 
 Para remover o acesso de alguém, apague o documento em `usuarios` (e/ou desative o usuário no Authentication).
