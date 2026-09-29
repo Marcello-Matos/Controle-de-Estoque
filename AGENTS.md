@@ -7,6 +7,7 @@ React 19 + Vite 6 (JavaScript) + Firebase Auth + Firestore. Setup completo no RE
 - `npm run build` — build de produção em `dist/`
 - `npm test` — sobe emuladores (auth + firestore) e roda Vitest (`tests/`). Requer Java 21+ (`JAVA_HOME`).
 - `npm run emuladores` + `VITE_USAR_EMULADORES=true npm run dev` — app local contra emuladores
+- `npm run seed` — com os emuladores rodando, cria `admin@teste.com` / `senha123456` e produtos de exemplo (pode rodar várias vezes). Os emuladores não guardam dados ao parar; `npm test` também limpa o Firestore, então rode o seed de novo depois.
 
 ## Ambiente
 - Node local é 22.11: Vite 7+/8 exigem 22.12+, por isso o projeto está no Vite 6.

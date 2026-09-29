@@ -53,7 +53,10 @@ O endereço será `https://SEU-PROJETO.web.app`.
 npm run emuladores                      # terminal 1 (UI em http://127.0.0.1:4000)
 VITE_USAR_EMULADORES=true npm run dev   # terminal 2
 ```
-Crie o usuário na UI do emulador (Authentication) e o documento `usuarios/{uid}` (Firestore). Os dados somem ao parar o emulador.
+```bash
+npm run seed                            # terminal 3: cria admin@teste.com / senha123456 + produtos de exemplo
+```
+Os dados somem ao parar o emulador — basta rodar `npm run seed` de novo.
 
 ## Testes
 ```bash

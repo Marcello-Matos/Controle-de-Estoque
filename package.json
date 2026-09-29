@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "emuladores": "firebase emulators:start --only auth,firestore --project demo-estoque",
+    "seed": "node scripts/seed-emuladores.mjs",
     "test": "firebase emulators:exec --only auth,firestore --project demo-estoque \"vitest run\"",
     "deploy": "npm run build && firebase deploy"
   },
