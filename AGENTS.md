@@ -14,7 +14,8 @@ React 19 + Vite 6 (JavaScript) + Firebase Auth + Firestore. Setup completo no RE
 - Dependências com versão exata; usar versões publicadas há 7+ dias.
 
 ## Convenções
-- Todo acesso ao Firestore fica em `src/services/estoque.js`; páginas não chamam o SDK diretamente.
+- **Multiusuário isolado**: cada conta tem o próprio estoque em `usuarios/{uid}/produtos` e `usuarios/{uid}/movimentacoes`. Cadastro é livre (sem aprovação); o perfil `usuarios/{uid}` é criado no primeiro login (`carregarPerfil` em `AuthContext`). Nunca criar coleções na raiz.
+- Todo acesso ao Firestore fica em `src/services/estoque.js` (usa o uid de `auth.currentUser`); páginas não chamam o SDK diretamente.
 - Quantidade de produto só muda via `movimentarProduto` (transação) ou estoque inicial em `cadastrarProduto` (batch), sempre com `ultimaMovimentacaoId`. As regras em `firestore.rules` exigem isso.
 - Ao mudar campos de documentos, atualizar juntos: serviço, `firestore.rules` (hasAll/hasOnly), testes e README.
 - Visual "StockPro" com tema escuro (padrão) e claro (`[data-tema='claro']` no `<html>`, salvo em `localStorage.tema`, alternado por `TemaToggle`). Nunca usar cores fixas nos CSS: usar/criar variáveis no `:root` e no bloco `[data-tema='claro']` de `src/styles.css`. Páginas usam `PaginaTopo` + `.card`; ícones via `lucide-react`; marca em `src/components/Logo.jsx`.

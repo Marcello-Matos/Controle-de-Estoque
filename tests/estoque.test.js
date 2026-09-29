@@ -86,9 +86,39 @@ describe('serviço de estoque (fluxo real)', () => {
   });
 });
 
+describe('cada usuário tem o próprio estoque', () => {
+  it('uma conta nova começa com o estoque zerado e não vê os dados de outra conta', async () => {
+    await cadastrarProduto({ nome: 'Produto da Maria', quantidade: '7' }, usuario);
+    const maria = usuario;
+
+    const { user } = await createUserWithEmailAndPassword(auth, `joao${Date.now()}@teste.com`, 'senha123456');
+    await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'usuarios', user.uid), { nome: 'João' }));
+    const joao = { uid: user.uid, email: user.email, nome: 'João' };
+
+    expect(await listarProdutos()).toEqual([]);
+    expect(await contarMovimentacoes()).toBe(0);
+    await cadastrarProduto({ nome: 'Produto do João', quantidade: '1' }, joao);
+    expect((await listarProdutos()).map((p) => p.nome)).toEqual(['Produto do João']);
+
+    const dbJoao = testEnv.authenticatedContext(joao.uid).firestore();
+    await assertFails(getDocs(collection(dbJoao, 'usuarios', maria.uid, 'produtos')));
+    await assertFails(getDocs(collection(dbJoao, 'usuarios', maria.uid, 'movimentacoes')));
+    await assertFails(getDoc(doc(dbJoao, 'usuarios', maria.uid)));
+  });
+
+  it('o próprio usuário cria o perfil, mas não o de outra pessoa', async () => {
+    const db = testEnv.authenticatedContext('novo-usuario').firestore();
+    await assertSucceeds(setDoc(doc(db, 'usuarios', 'novo-usuario'), { nome: 'Ana', email: 'ana@teste.com', criadoEm: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, 'usuarios', 'outra-pessoa'), { nome: 'Hacker', criadoEm: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, 'usuarios', 'novo-usuario'), { nome: '', criadoEm: serverTimestamp() }));
+  });
+});
+
 describe('regras de segurança (tentativas maliciosas)', () => {
   let db;
   let produtoId;
+  const produtos = () => collection(db, 'usuarios', usuario.uid, 'produtos');
+  const movimentacoes = () => collection(db, 'usuarios', usuario.uid, 'movimentacoes');
 
   beforeEach(async () => {
     await cadastrarProduto({ nome: 'Alvo', quantidade: '10' }, usuario);
@@ -96,18 +126,21 @@ describe('regras de segurança (tentativas maliciosas)', () => {
     db = testEnv.authenticatedContext(usuario.uid).firestore();
   });
 
-  it('nega acesso a quem não está logado ou não está em /usuarios', async () => {
-    await assertFails(getDocs(collection(testEnv.unauthenticatedContext().firestore(), 'produtos')));
-    await assertFails(getDocs(collection(testEnv.authenticatedContext('intruso').firestore(), 'produtos')));
-    await assertSucceeds(getDocs(collection(db, 'produtos')));
+  it('nega acesso a quem não está logado ou é outra conta', async () => {
+    await assertFails(getDocs(collection(testEnv.unauthenticatedContext().firestore(), 'usuarios', usuario.uid, 'produtos')));
+    const intruso = testEnv.authenticatedContext('intruso').firestore();
+    await assertFails(getDocs(collection(intruso, 'usuarios', usuario.uid, 'produtos')));
+    await assertFails(updateDoc(doc(intruso, 'usuarios', usuario.uid, 'produtos', produtoId), { nome: 'Hackeado' }));
+    await assertFails(deleteDoc(doc(intruso, 'usuarios', usuario.uid, 'produtos', produtoId)));
+    await assertSucceeds(getDocs(produtos()));
   });
 
   it('nega alterar a quantidade sem registrar movimentação', async () => {
-    await assertFails(updateDoc(doc(db, 'produtos', produtoId), { quantidade: 1000, atualizadoEm: serverTimestamp() }));
+    await assertFails(updateDoc(doc(produtos(), produtoId), { quantidade: 1000, atualizadoEm: serverTimestamp() }));
   });
 
   it('nega movimentação sem atualizar o produto', async () => {
-    await assertFails(addDoc(collection(db, 'movimentacoes'), {
+    await assertFails(addDoc(movimentacoes(), {
       produtoId, produtoNome: 'Alvo', tipo: 'entrada', quantidade: 5, responsavel: 'Maria',
       responsavelUid: usuario.uid, observacoes: '', data: serverTimestamp(),
     }));
@@ -115,38 +148,36 @@ describe('regras de segurança (tentativas maliciosas)', () => {
 
   it('nega movimentação com quantidade que não bate com o estoque', async () => {
     const batch = writeBatch(db);
-    const movRef = doc(collection(db, 'movimentacoes'));
+    const movRef = doc(movimentacoes());
     batch.set(movRef, {
       produtoId, produtoNome: 'Alvo', tipo: 'entrada', quantidade: 1, responsavel: 'Maria',
       responsavelUid: usuario.uid, observacoes: '', data: serverTimestamp(),
     });
-    batch.update(doc(db, 'produtos', produtoId), { quantidade: 500, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp() });
+    batch.update(doc(produtos(), produtoId), { quantidade: 500, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp() });
     await assertFails(batch.commit());
   });
 
   it('nega falsificar o responsável', async () => {
     const batch = writeBatch(db);
-    const movRef = doc(collection(db, 'movimentacoes'));
+    const movRef = doc(movimentacoes());
     batch.set(movRef, {
       produtoId, produtoNome: 'Alvo', tipo: 'entrada', quantidade: 1, responsavel: 'Outra Pessoa',
       responsavelUid: usuario.uid, observacoes: '', data: serverTimestamp(),
     });
-    batch.update(doc(db, 'produtos', produtoId), { quantidade: 11, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp() });
+    batch.update(doc(produtos(), produtoId), { quantidade: 11, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp() });
     await assertFails(batch.commit());
   });
 
   it('nega apagar ou editar o histórico', async () => {
     const [mov] = await listarMovimentacoes({ produtoId });
-    await assertFails(deleteDoc(doc(db, 'movimentacoes', mov.id)));
-    await assertFails(updateDoc(doc(db, 'movimentacoes', mov.id), { quantidade: 1 }));
+    await assertFails(deleteDoc(doc(movimentacoes(), mov.id)));
+    await assertFails(updateDoc(doc(movimentacoes(), mov.id), { quantidade: 1 }));
   });
 
-  it('nega criar produto com estoque sem movimentação e nega editar /usuarios', async () => {
-    await assertFails(setDoc(doc(collection(db, 'produtos')), {
+  it('nega criar produto com estoque sem movimentação', async () => {
+    await assertFails(setDoc(doc(produtos()), {
       nome: 'Fantasma', descricao: '', categoria: '', codigoBarras: null, quantidade: 50, estoqueMinimo: 0,
       precoCompra: 0, precoVenda: 0, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp(), ultimaMovimentacaoId: null,
     }));
-    await assertFails(setDoc(doc(db, 'usuarios', 'novo-uid'), { nome: 'Hacker' }));
-    await assertSucceeds(getDoc(doc(db, 'usuarios', usuario.uid)));
   });
 });

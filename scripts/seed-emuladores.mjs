@@ -29,7 +29,7 @@ async function criarAdmin() {
   let dados = await (await fetch(url('signUp'), opcoes)).json();
   if (dados.error?.message === 'EMAIL_EXISTS') dados = await (await fetch(url('signInWithPassword'), opcoes)).json();
   if (!dados.localId) throw new Error(`Falha ao criar usuário: ${JSON.stringify(dados.error)}`);
-  await gravar(`usuarios/${dados.localId}`, { nome: ADMIN.nome });
+  await gravar(`usuarios/${dados.localId}`, { nome: ADMIN.nome, email: ADMIN.email, criadoEm: new Date() });
   return dados.localId;
 }
 
@@ -49,12 +49,12 @@ try {
     let ultima = null;
     for (const [tipo, qtd, observacoes] of [['entrada', quantidade + 10, 'Estoque inicial'], ['saida', 10, 'Venda balcão']]) {
       ultima = `${id}-mov-${++n}`;
-      await gravar(`movimentacoes/${ultima}`, {
+      await gravar(`usuarios/${uid}/movimentacoes/${ultima}`, {
         produtoId: id, produtoNome: nome, tipo, quantidade: qtd, responsavel: ADMIN.nome,
         responsavelUid: uid, observacoes, data: new Date(agora - (20 - n) * 3600e3),
       });
     }
-    await gravar(`produtos/${id}`, {
+    await gravar(`usuarios/${uid}/produtos/${id}`, {
       nome, descricao: '', categoria, codigoBarras, quantidade, estoqueMinimo, precoCompra, precoVenda,
       criadoEm: new Date(), atualizadoEm: new Date(), ultimaMovimentacaoId: ultima,
     });

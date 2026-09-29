@@ -3,7 +3,8 @@
 Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Authentication** e **Cloud Firestore**, com hospedagem no **Firebase Hosting**.
 
 ## Funcionalidades
-- Login com e-mail/senha ou Google, "lembrar de mim", recuperação de senha e criação de conta (o acesso só é liberado pelo administrador)
+- **Cada conta tem o próprio estoque**: qualquer pessoa cria a conta e começa com o estoque zerado; ninguém vê os dados de outra conta
+- Login com e-mail/senha ou Google, "lembrar de mim", recuperação de senha e criação de conta
 - Painel com total de produtos, produtos em estoque crítico e total de movimentações
 - Cadastro, edição, listagem (em tempo real) e exclusão de produtos
 - Entradas e saídas com bloqueio de estoque negativo (transação)
@@ -28,13 +29,10 @@ Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Au
    npx firebase deploy --only firestore   # publica regras e índices
    ```
 
-## 2. Liberar usuários
-Qualquer pessoa pode **criar conta** (e-mail/senha ou Google) na tela de login, mas só entra no sistema quem o administrador liberar:
-1. A conta aparece em **Authentication** > **Usuários** (ou o admin cria em **Adicionar usuário**). Copie o **UID do usuário**.
-2. **Firestore** > coleção `usuarios` > **Adicionar documento** > **ID do documento** = UID copiado >
-   campo `nome` (string) = nome da pessoa (aparece como "responsável" nas movimentações).
-
-Para remover o acesso de alguém, apague o documento em `usuarios` (e/ou desative o usuário no Authentication).
+## 2. Usuários
+Não há nada a configurar: qualquer pessoa cria a conta na tela de login (Google ou e-mail/senha) e entra na hora.
+No primeiro acesso o sistema cria o perfil em `usuarios/{uid}` automaticamente, com o nome da conta.
+Para bloquear alguém, desative o usuário em **Authentication > Usuários**.
 
 ## 3. Rodar
 ```bash
@@ -64,15 +62,17 @@ npm test   # sobe os emuladores e roda os testes do serviço e das regras de seg
 ```
 
 ## Estrutura de dados (Firestore)
-| Coleção | Campos |
+Todos os dados de uma conta ficam dentro do documento dela:
+
+| Caminho | Campos |
 |---|---|
-| `usuarios/{uid}` | `nome` |
-| `produtos/{id}` | `nome`, `descricao`, `categoria`, `codigoBarras`, `quantidade`, `estoqueMinimo`, `precoCompra`, `precoVenda`, `criadoEm`, `atualizadoEm`, `ultimaMovimentacaoId` |
-| `movimentacoes/{id}` | `produtoId`, `produtoNome`, `tipo` (`entrada`/`saida`), `quantidade`, `responsavel`, `responsavelUid`, `observacoes`, `data` |
+| `usuarios/{uid}` | `nome`, `email`, `criadoEm` (perfil, criado no primeiro acesso) |
+| `usuarios/{uid}/produtos/{id}` | `nome`, `descricao`, `categoria`, `codigoBarras`, `quantidade`, `estoqueMinimo`, `precoCompra`, `precoVenda`, `criadoEm`, `atualizadoEm`, `ultimaMovimentacaoId` |
+| `usuarios/{uid}/movimentacoes/{id}` | `produtoId`, `produtoNome`, `tipo` (`entrada`/`saida`), `quantidade`, `responsavel`, `responsavelUid`, `observacoes`, `data` |
 
 ## Segurança
 Como o navegador acessa o Firestore diretamente, as regras em `firestore.rules` garantem que:
-- só usuários em `usuarios/{uid}` leem/escrevem;
+- cada usuário só lê e escreve dentro de `usuarios/{seu uid}` — o estoque de outra conta é inacessível;
 - a quantidade de um produto só muda junto com uma movimentação consistente (mesma operação);
 - o estoque nunca fica negativo e o responsável não pode ser falsificado;
 - o histórico não pode ser editado nem apagado; produtos com movimentações não podem ser excluídos.

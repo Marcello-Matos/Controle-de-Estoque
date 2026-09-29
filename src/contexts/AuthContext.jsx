@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -12,22 +12,27 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
 
-async function exigirAutorizacao(user) {
-  const perfil = await getDoc(doc(db, 'usuarios', user.uid));
-  if (!perfil.exists()) {
-    await signOut(auth);
-    throw new Error('nao-autorizado');
-  }
+// Garante que o usuário tenha o documento de perfil em /usuarios/{uid} (criado no primeiro acesso).
+async function carregarPerfil(user, nomeInformado) {
+  const ref = doc(db, 'usuarios', user.uid);
+  const perfil = await getDoc(ref);
+  if (perfil.exists() && perfil.data().nome) return perfil.data();
+
+  const nome = (nomeInformado || user.displayName || user.email?.split('@')[0] || 'Usuário').slice(0, 100);
+  const dados = { nome, email: user.email ?? null };
+  await setDoc(ref, perfil.exists() ? { ...perfil.data(), ...dados } : { ...dados, criadoEm: serverTimestamp() });
+  return dados;
 }
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null);
   const [carregando, setCarregando] = useState(true);
+  const nomePendente = useRef(null);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -37,14 +42,11 @@ export function AuthProvider({ children }) {
         return;
       }
       try {
-        const perfil = await getDoc(doc(db, 'usuarios', user.uid));
-        if (perfil.exists()) {
-          setUsuario({ uid: user.uid, email: user.email, nome: perfil.data().nome });
-        } else {
-          await signOut(auth);
-          setUsuario(null);
-        }
-      } catch {
+        const perfil = await carregarPerfil(user, nomePendente.current);
+        nomePendente.current = null;
+        setUsuario({ uid: user.uid, email: user.email, nome: perfil.nome });
+      } catch (erro) {
+        console.error(erro);
         await signOut(auth);
         setUsuario(null);
       }
@@ -57,20 +59,18 @@ export function AuthProvider({ children }) {
 
   async function entrar(email, senha, lembrar = true) {
     await definirPersistencia(lembrar);
-    const { user } = await signInWithEmailAndPassword(auth, email, senha);
-    await exigirAutorizacao(user);
+    await signInWithEmailAndPassword(auth, email, senha);
   }
 
   async function entrarComGoogle(lembrar = true) {
     await definirPersistencia(lembrar);
-    const { user } = await signInWithPopup(auth, new GoogleAuthProvider());
-    await exigirAutorizacao(user);
+    await signInWithPopup(auth, new GoogleAuthProvider());
   }
 
   async function criarConta(nome, email, senha) {
+    nomePendente.current = nome;
     const { user } = await createUserWithEmailAndPassword(auth, email, senha);
     await updateProfile(user, { displayName: nome });
-    await signOut(auth);
   }
 
   const recuperarSenha = (email) => sendPasswordResetEmail(auth, email);

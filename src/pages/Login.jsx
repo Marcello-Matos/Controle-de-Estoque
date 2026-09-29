@@ -24,7 +24,6 @@ const DESTAQUES = [
 ];
 
 const ERROS_AUTH = {
-  'nao-autorizado': 'Sua conta ainda não foi liberada. Fale com o administrador.',
   'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
   'auth/email-already-in-use': 'Já existe uma conta com esse e-mail.',
   'auth/weak-password': 'A senha deve ter pelo menos 6 caracteres.',
@@ -35,7 +34,7 @@ const ERROS_AUTH = {
 };
 
 function traduzirErro(err) {
-  return ERROS_AUTH[err.message] || ERROS_AUTH[err.code] || 'E-mail ou senha inválidos.';
+  return ERROS_AUTH[err.code] || 'E-mail ou senha inválidos.';
 }
 
 function GoogleIcone() {
@@ -84,9 +83,6 @@ export default function Login() {
     executar(async () => {
       if (criando) {
         await criarConta(nome.trim(), email, senha);
-        setModo('entrar');
-        setSenha('');
-        setMensagem({ texto: 'Conta criada! Peça ao administrador para liberar seu acesso.', sucesso: true });
       } else {
         await entrar(email, senha, lembrar);
       }
@@ -141,7 +137,7 @@ export default function Login() {
           <Logo />
 
           <h2>{criando ? 'Crie sua conta' : 'Bem-vindo de volta!'}</h2>
-          <p className="login-sub">{criando ? 'Preencha os dados para solicitar acesso' : 'Faça login na sua conta para continuar.'}</p>
+          <p className="login-sub">{criando ? 'Comece agora a controlar o seu estoque.' : 'Faça login na sua conta para continuar.'}</p>
 
           <button type="button" className="botao-google" disabled={enviando} onClick={() => executar(() => entrarComGoogle(lembrar))}>
             <GoogleIcone /> Entrar com o Google

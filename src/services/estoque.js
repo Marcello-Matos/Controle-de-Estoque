@@ -14,10 +14,17 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 
-const produtosCol = collection(db, 'produtos');
-const movimentacoesCol = collection(db, 'movimentacoes');
+// Cada usuário tem o próprio estoque em /usuarios/{uid}/produtos e /usuarios/{uid}/movimentacoes.
+function uidAtual() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new ErroEstoque('Sua sessão expirou. Entre novamente.');
+  return uid;
+}
+
+const produtosCol = () => collection(db, 'usuarios', uidAtual(), 'produtos');
+const movimentacoesCol = () => collection(db, 'usuarios', uidAtual(), 'movimentacoes');
 
 export const LIMITE_HISTORICO = 500;
 
@@ -48,7 +55,7 @@ function validarProduto(p, quantidade = 0) {
 
 async function garantirCodigoUnico(codigoBarras, ignorarId) {
   if (!codigoBarras) return;
-  const snap = await getDocs(query(produtosCol, where('codigoBarras', '==', codigoBarras), limit(2)));
+  const snap = await getDocs(query(produtosCol(), where('codigoBarras', '==', codigoBarras), limit(2)));
   if (snap.docs.some((d) => d.id !== ignorarId)) {
     throw new ErroEstoque('Já existe um produto com esse código de barras.');
   }
@@ -69,19 +76,19 @@ function novaMovimentacao(produtoId, produtoNome, tipo, quantidade, usuario, obs
 
 export function observarProdutos(callback, onErro) {
   return onSnapshot(
-    query(produtosCol, orderBy('nome')),
+    query(produtosCol(), orderBy('nome')),
     (snap) => callback(snap.docs.map(lerProduto)),
     onErro,
   );
 }
 
 export async function listarProdutos() {
-  const snap = await getDocs(query(produtosCol, orderBy('nome')));
+  const snap = await getDocs(query(produtosCol(), orderBy('nome')));
   return snap.docs.map(lerProduto);
 }
 
 export async function buscarProduto(id) {
-  const snap = await getDoc(doc(produtosCol, id));
+  const snap = await getDoc(doc(produtosCol(), id));
   return snap.exists() ? lerProduto(snap) : null;
 }
 
@@ -91,8 +98,8 @@ export async function cadastrarProduto(dados, usuario) {
   validarProduto(produto, quantidade);
   await garantirCodigoUnico(produto.codigoBarras);
 
-  const produtoRef = doc(produtosCol);
-  const movRef = quantidade > 0 ? doc(movimentacoesCol) : null;
+  const produtoRef = doc(produtosCol());
+  const movRef = quantidade > 0 ? doc(movimentacoesCol()) : null;
   const batch = writeBatch(db);
 
   batch.set(produtoRef, {
@@ -114,7 +121,7 @@ export async function atualizarProduto(id, dados) {
   await garantirCodigoUnico(produto.codigoBarras, id);
 
   await runTransaction(db, async (tx) => {
-    const ref = doc(produtosCol, id);
+    const ref = doc(produtosCol(), id);
     const atual = await tx.get(ref);
     if (!atual.exists()) throw new ErroEstoque('Produto não encontrado.');
     tx.update(ref, { ...produto, atualizadoEm: serverTimestamp() });
@@ -125,7 +132,7 @@ export async function excluirProduto(produto) {
   if (produto.ultimaMovimentacaoId) {
     throw new ErroEstoque('Não é possível excluir: o produto possui movimentações registradas.');
   }
-  await deleteDoc(doc(produtosCol, produto.id));
+  await deleteDoc(doc(produtosCol(), produto.id));
 }
 
 export async function movimentarProduto({ produtoId, tipo, quantidade, observacoes }, usuario) {
@@ -134,7 +141,7 @@ export async function movimentarProduto({ produtoId, tipo, quantidade, observaco
   if (!(qtd > 0)) throw new ErroEstoque('A quantidade deve ser maior que zero.');
 
   await runTransaction(db, async (tx) => {
-    const produtoRef = doc(produtosCol, produtoId);
+    const produtoRef = doc(produtosCol(), produtoId);
     const snap = await tx.get(produtoRef);
     if (!snap.exists()) throw new ErroEstoque('Produto não encontrado.');
 
@@ -142,7 +149,7 @@ export async function movimentarProduto({ produtoId, tipo, quantidade, observaco
     const nova = tipo === 'entrada' ? atual + qtd : atual - qtd;
     if (nova < 0) throw new ErroEstoque(`Estoque insuficiente (disponível: ${atual}).`);
 
-    const movRef = doc(movimentacoesCol);
+    const movRef = doc(movimentacoesCol());
     tx.set(movRef, novaMovimentacao(produtoId, nome, tipo, qtd, usuario, observacoes));
     tx.update(produtoRef, { quantidade: nova, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp() });
   });
@@ -152,11 +159,11 @@ export async function listarMovimentacoes({ produtoId, tipo }) {
   const filtros = [];
   if (produtoId) filtros.push(where('produtoId', '==', produtoId));
   if (tipo) filtros.push(where('tipo', '==', tipo));
-  const snap = await getDocs(query(movimentacoesCol, ...filtros, orderBy('data', 'desc'), limit(LIMITE_HISTORICO)));
+  const snap = await getDocs(query(movimentacoesCol(), ...filtros, orderBy('data', 'desc'), limit(LIMITE_HISTORICO)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function contarMovimentacoes() {
-  const snap = await getCountFromServer(movimentacoesCol);
+  const snap = await getCountFromServer(movimentacoesCol());
   return snap.data().count;
 }
