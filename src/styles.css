@@ -734,8 +734,159 @@ td.vazio {
   color: var(--texto-suave);
 }
 
+.link-botao {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--roxo-claro);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-botao:hover {
+  color: var(--roxo-hover);
+}
+
+/* ---------- Compartilhamento ---------- */
+.seletor-estoque {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: -12px 0 -8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.seletor-estoque select {
+  width: 100%;
+  padding: 11px 36px 11px 44px;
+  border: 1px solid var(--borda-destaque);
+  border-radius: 12px;
+  background-color: var(--roxo-suave);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%239ea3c8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  appearance: none;
+  color: var(--texto-forte);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.seletor-estoque select:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.2);
+}
+
+.seletor-estoque option {
+  background: var(--opcao);
+  color: var(--texto-forte);
+}
+
+.faixa-compartilhado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--roxo-suave);
+  border: 1px solid var(--borda-destaque);
+  color: var(--texto-label);
+  font-size: 0.9rem;
+}
+
+.faixa-compartilhado svg {
+  color: var(--roxo-claro);
+}
+
+.faixa-compartilhado strong {
+  color: var(--texto-forte);
+}
+
+.faixa-compartilhado .link-botao {
+  margin-left: auto;
+}
+
+.aviso {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: var(--texto-label);
+  font-size: 0.9rem;
+}
+
+.aviso > svg {
+  flex-shrink: 0;
+  color: var(--amarelo);
+}
+
+.aviso strong,
+.aviso b {
+  color: var(--texto-forte);
+}
+
+.aviso p {
+  margin-top: 4px;
+}
+
+.aviso-status {
+  font-weight: 600;
+}
+
+.aviso-acoes {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.aviso-acoes .secondary-btn {
+  padding: 8px 14px;
+}
+
+.form-convite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px auto;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.celula-select select {
+  max-width: 200px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 /* ---------- Responsivo ---------- */
 @media (max-width: 900px) {
+  .seletor-estoque {
+    margin: 0;
+    min-width: 0;
+    flex: 0 1 150px;
+  }
+
+  .seletor-estoque > span {
+    display: none;
+  }
+
+  .form-convite {
+    grid-template-columns: 1fr;
+  }
+
   .app {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -772,8 +923,18 @@ td.vazio {
 
   .nav {
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
+    min-width: 0;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav > :first-child {
+    margin-left: auto;
+  }
+
+  .nav > :last-child {
+    margin-right: auto;
   }
 
   .usuario-box {

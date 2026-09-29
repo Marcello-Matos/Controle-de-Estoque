@@ -17,10 +17,16 @@ import {
 import { auth, db } from '../firebase';
 
 // Cada usuário tem o próprio estoque em /usuarios/{uid}/produtos e /usuarios/{uid}/movimentacoes.
+// Quem recebeu um compartilhamento pode trabalhar no estoque de outro dono (definirEstoqueAtivo).
+let donoAtivo = null;
+
+export function definirEstoqueAtivo(donoUid) {
+  donoAtivo = donoUid;
+}
+
 function uidAtual() {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new ErroEstoque('Sua sessão expirou. Entre novamente.');
-  return uid;
+  if (!auth.currentUser) throw new ErroEstoque('Sua sessão expirou. Entre novamente.');
+  return donoAtivo || auth.currentUser.uid;
 }
 
 const produtosCol = () => collection(db, 'usuarios', uidAtual(), 'produtos');

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeftRight, Package, PackagePlus, TriangleAlert, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEstoque } from '../contexts/EstoqueContext';
+import AvisoVerificacao from '../components/AvisoVerificacao';
 import { contarMovimentacoes, listarProdutos } from '../services/estoque';
 import { formatarMoeda, formatarMoedaCompacta, mensagemErro } from '../utils';
 import Mensagem from '../components/Mensagem';
@@ -9,6 +11,7 @@ import PaginaTopo from '../components/PaginaTopo';
 
 export default function Painel() {
   const { usuario } = useAuth();
+  const { estoque, podeEditar } = useEstoque();
   const [resumo, setResumo] = useState(null);
   const [erro, setErro] = useState(null);
 
@@ -41,9 +44,13 @@ export default function Painel() {
 
   return (
     <>
-      <PaginaTopo titulo={`Olá, ${usuario.nome}!`} subtitulo="Acompanhe o resumo do seu estoque.">
-        <Link to="/produtos/novo" className="primary-btn"><PackagePlus size={18} /> Novo produto</Link>
+      <PaginaTopo
+        titulo={`Olá, ${usuario.nome}!`}
+        subtitulo={estoque.proprio ? 'Acompanhe o resumo do seu estoque.' : `Resumo do estoque de ${estoque.nome}.`}
+      >
+        {podeEditar && <Link to="/produtos/novo" className="primary-btn"><PackagePlus size={18} /> Novo produto</Link>}
       </PaginaTopo>
+      <AvisoVerificacao />
       <Mensagem mensagem={erro} />
 
       {!resumo ? (
@@ -82,7 +89,7 @@ export default function Painel() {
                       <td>{p.categoria || '—'}</td>
                       <td className="numero"><span className="badge critico">{p.quantidade}</span></td>
                       <td className="numero">{p.estoqueMinimo}</td>
-                      <td className="numero"><Link to="/movimentar" state={{ produtoId: p.id }}>Repor</Link></td>
+                      <td className="numero">{podeEditar && <Link to="/movimentar" state={{ produtoId: p.id }}>Repor</Link>}</td>
                     </tr>
                   ))}
                   {resumo.criticos.length === 0 && (

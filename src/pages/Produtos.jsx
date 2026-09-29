@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useEstoque } from '../contexts/EstoqueContext';
 import { excluirProduto, observarProdutos } from '../services/estoque';
 import { formatarMoeda, mensagemErro } from '../utils';
 import Mensagem from '../components/Mensagem';
@@ -9,6 +10,7 @@ import PaginaTopo from '../components/PaginaTopo';
 export default function Produtos() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { podeEditar, ehDono } = useEstoque();
   const [produtos, setProdutos] = useState(null);
   const [filtro, setFiltro] = useState('');
   const [mensagem, setMensagem] = useState(location.state?.mensagem ?? null);
@@ -33,8 +35,8 @@ export default function Produtos() {
 
   return (
     <>
-      <PaginaTopo titulo="Produtos" subtitulo="Todos os itens do seu estoque, atualizados em tempo real.">
-        <Link to="/produtos/novo" className="primary-btn"><Plus size={18} /> Novo produto</Link>
+      <PaginaTopo titulo="Produtos" subtitulo="Todos os itens do estoque, atualizados em tempo real.">
+        {podeEditar && <Link to="/produtos/novo" className="primary-btn"><Plus size={18} /> Novo produto</Link>}
       </PaginaTopo>
       <Mensagem mensagem={mensagem} />
 
@@ -59,7 +61,7 @@ export default function Produtos() {
                   <th className="numero">Mínimo</th>
                   <th className="numero">Preço Compra</th>
                   <th className="numero">Preço Venda</th>
-                  <th className="numero">Ações</th>
+                  {podeEditar && <th className="numero">Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -73,21 +75,25 @@ export default function Produtos() {
                       <td className="numero">{p.estoqueMinimo}</td>
                       <td className="numero">{formatarMoeda(p.precoCompra)}</td>
                       <td className="numero">{formatarMoeda(p.precoVenda)}</td>
-                      <td>
-                        <div className="acoes">
-                          <button type="button" className="botao-icone" title="Editar" aria-label={`Editar ${p.nome}`} onClick={() => navigate(`/produtos/${p.id}/editar`)}>
-                            <Pencil size={17} />
-                          </button>
-                          <button type="button" className="botao-icone perigo" title="Excluir" aria-label={`Excluir ${p.nome}`} onClick={() => handleExcluir(p)}>
-                            <Trash2 size={17} />
-                          </button>
-                        </div>
-                      </td>
+                      {podeEditar && (
+                        <td>
+                          <div className="acoes">
+                            <button type="button" className="botao-icone" title="Editar" aria-label={`Editar ${p.nome}`} onClick={() => navigate(`/produtos/${p.id}/editar`)}>
+                              <Pencil size={17} />
+                            </button>
+                            {ehDono && (
+                              <button type="button" className="botao-icone perigo" title="Excluir" aria-label={`Excluir ${p.nome}`} onClick={() => handleExcluir(p)}>
+                                <Trash2 size={17} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 {visiveis.length === 0 && (
-                  <tr><td colSpan={7} className="vazio">Nenhum produto encontrado.</td></tr>
+                  <tr><td colSpan={podeEditar ? 7 : 6} className="vazio">Nenhum produto encontrado.</td></tr>
                 )}
               </tbody>
             </table>

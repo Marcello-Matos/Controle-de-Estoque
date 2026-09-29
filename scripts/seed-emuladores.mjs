@@ -1,4 +1,4 @@
-// Popula os emuladores locais (npm run emuladores) com um usuário de teste e produtos de exemplo.
+// Popula os emuladores locais (npm run emuladores) com usuários de teste, produtos de exemplo e um compartilhamento.
 // Uso: npm run seed
 const PROJETO = 'demo-estoque';
 const AUTH = 'http://127.0.0.1:9099';
@@ -22,14 +22,22 @@ async function gravar(caminho, dados) {
   if (!resposta.ok) throw new Error(`Falha ao gravar ${caminho}: ${await resposta.text()}`);
 }
 
-async function criarAdmin() {
+const CONVIDADO = { email: 'convidado@teste.com', senha: 'senha123456', nome: 'Convidado' };
+
+async function criarUsuario({ email, senha, nome }) {
   const url = (acao) => `${AUTH}/identitytoolkit.googleapis.com/v1/accounts:${acao}?key=demo-key`;
-  const corpo = JSON.stringify({ email: ADMIN.email, password: ADMIN.senha, returnSecureToken: true });
+  const corpo = JSON.stringify({ email, password: senha, returnSecureToken: true });
   const opcoes = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: corpo };
   let dados = await (await fetch(url('signUp'), opcoes)).json();
   if (dados.error?.message === 'EMAIL_EXISTS') dados = await (await fetch(url('signInWithPassword'), opcoes)).json();
   if (!dados.localId) throw new Error(`Falha ao criar usuário: ${JSON.stringify(dados.error)}`);
-  await gravar(`usuarios/${dados.localId}`, { nome: ADMIN.nome, email: ADMIN.email, criadoEm: new Date() });
+  // Marca o e-mail como verificado (necessário para acessar estoques compartilhados).
+  await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJETO}/accounts:update`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: dados.localId, emailVerified: true }),
+  });
+  await gravar(`usuarios/${dados.localId}`, { nome, email, criadoEm: new Date() });
   return dados.localId;
 }
 
@@ -42,7 +50,11 @@ const PRODUTOS = [
 ];
 
 try {
-  const uid = await criarAdmin();
+  const uid = await criarUsuario(ADMIN);
+  await criarUsuario(CONVIDADO);
+  await gravar(`usuarios/${uid}/acessos/${CONVIDADO.email}`, {
+    email: CONVIDADO.email, papel: 'edicao', donoUid: uid, donoNome: ADMIN.nome, criadoEm: new Date(),
+  });
   const agora = Date.now();
   let n = 0;
   for (const [id, nome, categoria, codigoBarras, quantidade, estoqueMinimo, precoCompra, precoVenda] of PRODUTOS) {
@@ -60,7 +72,8 @@ try {
     });
   }
   console.log(`Pronto! ${PRODUTOS.length} produtos e ${n} movimentações criados.`);
-  console.log(`Login: ${ADMIN.email} / ${ADMIN.senha}`);
+  console.log(`Dono:      ${ADMIN.email} / ${ADMIN.senha}`);
+  console.log(`Convidado: ${CONVIDADO.email} / ${CONVIDADO.senha} (estoque próprio vazio + "Pode editar" no estoque do Administrador)`);
 } catch (erro) {
   console.error(erro.message.includes('fetch failed') ? 'Emuladores não estão rodando. Execute antes: npm run emuladores' : erro.message);
   process.exit(1);

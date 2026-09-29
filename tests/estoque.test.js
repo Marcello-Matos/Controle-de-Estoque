@@ -3,13 +3,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc, writeBatch,
+  addDoc, collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
 import { auth } from '../src/firebase';
 import {
-  atualizarProduto, buscarProduto, cadastrarProduto, contarMovimentacoes, ErroEstoque,
+  atualizarProduto, buscarProduto, cadastrarProduto, contarMovimentacoes, definirEstoqueAtivo, ErroEstoque,
   excluirProduto, listarMovimentacoes, listarProdutos, movimentarProduto,
 } from '../src/services/estoque';
+import { alterarPermissao, compartilharEstoque, removerAcesso } from '../src/services/compartilhamento';
 
 let testEnv;
 let usuario;
@@ -28,6 +29,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await signOut(auth);
+  definirEstoqueAtivo(null);
   const { user } = await createUserWithEmailAndPassword(auth, `user${Date.now()}@teste.com`, 'senha123456');
   usuario = { uid: user.uid, email: user.email, nome: 'Maria' };
   await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'usuarios', user.uid), { nome: 'Maria' }));
@@ -179,5 +181,111 @@ describe('regras de segurança (tentativas maliciosas)', () => {
       nome: 'Fantasma', descricao: '', categoria: '', codigoBarras: null, quantidade: 50, estoqueMinimo: 0,
       precoCompra: 0, precoVenda: 0, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp(), ultimaMovimentacaoId: null,
     }));
+  });
+});
+
+describe('compartilhamento de estoque', () => {
+  const emailJoao = `joao${Date.now()}@teste.com`;
+  let produtoId;
+  let db;
+  const joao = (extra = {}) => testEnv.authenticatedContext('joao-uid', { email: emailJoao, email_verified: true, ...extra }).firestore();
+  const caminho = (...partes) => ['usuarios', usuario.uid, ...partes];
+
+  function batchMovimentacao(dbAtor, { responsavel, responsavelUid, quantidadeFinal }) {
+    const batch = writeBatch(dbAtor);
+    const movRef = doc(collection(dbAtor, ...caminho('movimentacoes')));
+    batch.set(movRef, {
+      produtoId, produtoNome: 'Alvo', tipo: 'entrada', quantidade: 1, responsavel,
+      responsavelUid, observacoes: '', data: serverTimestamp(),
+    });
+    batch.update(doc(dbAtor, ...caminho('produtos', produtoId)), {
+      quantidade: quantidadeFinal, ultimaMovimentacaoId: movRef.id, atualizadoEm: serverTimestamp(),
+    });
+    return batch.commit();
+  }
+
+  beforeEach(async () => {
+    await cadastrarProduto({ nome: 'Alvo', quantidade: '10' }, usuario);
+    produtoId = (await produtoPorNome('Alvo')).id;
+    await compartilharEstoque(emailJoao, 'leitura', usuario);
+    await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'usuarios', 'joao-uid'), { nome: 'João' }));
+    db = joao();
+  });
+
+  it('"Somente ver" consulta produtos e histórico, mas não altera nada', async () => {
+    await assertSucceeds(getDocs(collection(db, ...caminho('produtos'))));
+    await assertSucceeds(getDocs(collection(db, ...caminho('movimentacoes'))));
+    await assertFails(updateDoc(doc(db, ...caminho('produtos', produtoId)), { nome: 'Mudou', atualizadoEm: serverTimestamp() }));
+    await assertFails(batchMovimentacao(db, { responsavel: 'João', responsavelUid: 'joao-uid', quantidadeFinal: 11 }));
+  });
+
+  it('"Pode editar" movimenta como ele mesmo, mas não exclui produtos', async () => {
+    await alterarPermissao(usuario.uid, emailJoao, 'edicao');
+    await assertFails(batchMovimentacao(db, { responsavel: 'Maria', responsavelUid: 'joao-uid', quantidadeFinal: 11 }));
+    await assertSucceeds(batchMovimentacao(db, { responsavel: 'João', responsavelUid: 'joao-uid', quantidadeFinal: 11 }));
+    await assertSucceeds(updateDoc(doc(db, ...caminho('produtos', produtoId)), { categoria: 'Nova', atualizadoEm: serverTimestamp() }));
+
+    await cadastrarProduto({ nome: 'Sem movimento', quantidade: '0' }, usuario);
+    const semMov = await produtoPorNome('Sem movimento');
+    await assertFails(deleteDoc(doc(db, ...caminho('produtos', semMov.id))));
+  });
+
+  it('convidado não gerencia acessos nem vê a lista de pessoas', async () => {
+    await alterarPermissao(usuario.uid, emailJoao, 'edicao');
+    await assertFails(setDoc(doc(db, ...caminho('acessos', 'amigo@teste.com')), {
+      email: 'amigo@teste.com', papel: 'edicao', donoUid: usuario.uid, donoNome: 'Maria', criadoEm: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(doc(db, ...caminho('acessos', emailJoao)), { papel: 'edicao' }));
+    await assertFails(getDocs(collection(db, ...caminho('acessos'))));
+  });
+
+  it('e-mail não verificado ou de outra pessoa não acessa', async () => {
+    await assertFails(getDocs(collection(joao({ email_verified: false }), ...caminho('produtos'))));
+    const outro = testEnv.authenticatedContext('outro-uid', { email: 'outro@teste.com', email_verified: true }).firestore();
+    await assertFails(getDocs(collection(outro, ...caminho('produtos'))));
+  });
+
+  it('convidado encontra os estoques compartilhados com ele e pode sair', async () => {
+    const meus = await assertSucceeds(getDocs(query(collectionGroup(db, 'acessos'), where('email', '==', emailJoao))));
+    expect(meus.docs.map((d) => d.data())).toMatchObject([{ donoUid: usuario.uid, donoNome: 'Maria', papel: 'leitura' }]);
+    await assertFails(getDocs(query(collectionGroup(db, 'acessos'), where('email', '==', 'outro@teste.com'))));
+
+    await assertSucceeds(deleteDoc(doc(db, ...caminho('acessos', emailJoao))));
+    await assertFails(getDocs(collection(db, ...caminho('produtos'))));
+  });
+
+  it('não permite compartilhar consigo mesmo nem com permissão inválida', async () => {
+    await expect(compartilharEstoque(usuario.email, 'leitura', usuario)).rejects.toBeInstanceOf(ErroEstoque);
+    await expect(compartilharEstoque(emailJoao, 'leitura', usuario)).rejects.toThrow('já tem acesso');
+    const dbMaria = testEnv.authenticatedContext(usuario.uid, { email: usuario.email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(dbMaria, ...caminho('acessos', 'x@teste.com')), {
+      email: 'x@teste.com', papel: 'admin', donoUid: usuario.uid, donoNome: 'Maria', criadoEm: serverTimestamp(),
+    }));
+    await removerAcesso(usuario.uid, emailJoao);
+    await assertFails(getDocs(collection(db, ...caminho('produtos'))));
+  });
+
+  it('fluxo real: convidado com "Pode editar" abre o estoque do dono e movimenta', async () => {
+    await alterarPermissao(usuario.uid, emailJoao, 'edicao');
+    const maria = usuario;
+
+    const { user } = await createUserWithEmailAndPassword(auth, emailJoao, 'senha123456');
+    await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'usuarios', user.uid), { nome: 'João' }));
+    await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/demo-estoque/accounts:update', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ localId: user.uid, emailVerified: true }),
+    });
+    await user.reload();
+    await user.getIdToken(true);
+
+    expect(await listarProdutos()).toEqual([]);
+    definirEstoqueAtivo(maria.uid);
+    expect((await listarProdutos()).map((p) => p.nome)).toEqual(['Alvo']);
+    await movimentarProduto({ produtoId, tipo: 'saida', quantidade: '4' }, { uid: user.uid, nome: 'João' });
+    expect((await buscarProduto(produtoId)).quantidade).toBe(6);
+    const [ultima] = await listarMovimentacoes({ produtoId, tipo: 'saida' });
+    expect(ultima).toMatchObject({ responsavel: 'João', quantidade: 4 });
+    await expect(excluirProduto({ id: produtoId, ultimaMovimentacaoId: null })).rejects.toThrow();
   });
 });

@@ -4,6 +4,7 @@ Versão do sistema de controle de estoque usando **React + Vite**, **Firebase Au
 
 ## Funcionalidades
 - **Cada conta tem o próprio estoque**: qualquer pessoa cria a conta e começa com o estoque zerado; ninguém vê os dados de outra conta
+- **Compartilhamento**: o dono convida pessoas pelo e-mail (tela *Compartilhar*) com permissão **Somente ver** ou **Pode editar**; o convidado troca de estoque pelo seletor no menu. Excluir produtos e gerenciar acessos são exclusivos do dono. Convidados precisam de e-mail verificado (contas Google já são).
 - Login com e-mail/senha ou Google, "lembrar de mim", recuperação de senha e criação de conta
 - Painel com total de produtos, produtos em estoque crítico e total de movimentações
 - Cadastro, edição, listagem (em tempo real) e exclusão de produtos
@@ -52,7 +53,7 @@ npm run emuladores                      # terminal 1 (UI em http://127.0.0.1:400
 VITE_USAR_EMULADORES=true npm run dev   # terminal 2
 ```
 ```bash
-npm run seed                            # terminal 3: cria admin@teste.com / senha123456 + produtos de exemplo
+npm run seed                            # terminal 3: cria admin@teste.com e convidado@teste.com (senha123456) + produtos + compartilhamento
 ```
 Os dados somem ao parar o emulador — basta rodar `npm run seed` de novo.
 
@@ -69,10 +70,12 @@ Todos os dados de uma conta ficam dentro do documento dela:
 | `usuarios/{uid}` | `nome`, `email`, `criadoEm` (perfil, criado no primeiro acesso) |
 | `usuarios/{uid}/produtos/{id}` | `nome`, `descricao`, `categoria`, `codigoBarras`, `quantidade`, `estoqueMinimo`, `precoCompra`, `precoVenda`, `criadoEm`, `atualizadoEm`, `ultimaMovimentacaoId` |
 | `usuarios/{uid}/movimentacoes/{id}` | `produtoId`, `produtoNome`, `tipo` (`entrada`/`saida`), `quantidade`, `responsavel`, `responsavelUid`, `observacoes`, `data` |
+| `usuarios/{uid}/acessos/{email}` | `email`, `papel` (`leitura`/`edicao`), `donoUid`, `donoNome`, `criadoEm` (ID = e-mail em minúsculas) |
 
 ## Segurança
 Como o navegador acessa o Firestore diretamente, as regras em `firestore.rules` garantem que:
-- cada usuário só lê e escreve dentro de `usuarios/{seu uid}` — o estoque de outra conta é inacessível;
+- cada usuário só lê e escreve dentro de `usuarios/{seu uid}`, exceto nos estoques em que foi convidado (com e-mail verificado), respeitando a permissão;
+- o responsável de cada movimentação é sempre quem está logado;
 - a quantidade de um produto só muda junto com uma movimentação consistente (mesma operação);
 - o estoque nunca fica negativo e o responsável não pode ser falsificado;
 - o histórico não pode ser editado nem apagado; produtos com movimentações não podem ser excluídos.

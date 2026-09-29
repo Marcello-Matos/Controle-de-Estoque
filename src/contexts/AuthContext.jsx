@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -44,7 +45,7 @@ export function AuthProvider({ children }) {
       try {
         const perfil = await carregarPerfil(user, nomePendente.current);
         nomePendente.current = null;
-        setUsuario({ uid: user.uid, email: user.email, nome: perfil.nome });
+        setUsuario({ uid: user.uid, email: user.email, nome: perfil.nome, emailVerificado: user.emailVerified });
       } catch (erro) {
         console.error(erro);
         await signOut(auth);
@@ -71,14 +72,30 @@ export function AuthProvider({ children }) {
     nomePendente.current = nome;
     const { user } = await createUserWithEmailAndPassword(auth, email, senha);
     await updateProfile(user, { displayName: nome });
+    await sendEmailVerification(user).catch((erro) => console.error(erro));
   }
 
   const recuperarSenha = (email) => sendPasswordResetEmail(auth, email);
 
+  const reenviarVerificacao = () => sendEmailVerification(auth.currentUser);
+
+  // Depois de clicar no link do e-mail, recarrega a conta e renova o token para as regras reconhecerem.
+  async function confirmarVerificacao() {
+    await auth.currentUser.reload();
+    const verificado = auth.currentUser.emailVerified;
+    if (verificado) {
+      await auth.currentUser.getIdToken(true);
+      setUsuario((atual) => ({ ...atual, emailVerificado: true }));
+    }
+    return verificado;
+  }
+
   const sair = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ usuario, carregando, entrar, entrarComGoogle, criarConta, recuperarSenha, sair }}>
+    <AuthContext.Provider
+      value={{ usuario, carregando, entrar, entrarComGoogle, criarConta, recuperarSenha, reenviarVerificacao, confirmarVerificacao, sair }}
+    >
       {children}
     </AuthContext.Provider>
   );

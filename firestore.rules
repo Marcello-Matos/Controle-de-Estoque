@@ -8,6 +8,40 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // Convidados só são reconhecidos com e-mail verificado (Google já vem verificado).
+    function emailVerificado() {
+      return request.auth != null
+        && request.auth.token.get('email', null) is string
+        && request.auth.token.get('email_verified', false) == true;
+    }
+
+    function caminhoAcesso(uid) {
+      return /databases/$(database)/documents/usuarios/$(uid)/acessos/$(request.auth.token.email.lower());
+    }
+
+    function convidado(uid) {
+      return emailVerificado() && exists(caminhoAcesso(uid));
+    }
+
+    function podeLer(uid) {
+      return dono(uid) || convidado(uid);
+    }
+
+    function podeEditar(uid) {
+      return dono(uid) || (convidado(uid) && get(caminhoAcesso(uid)).data.papel == 'edicao');
+    }
+
+    function acessoValido(d, uid, email) {
+      return d.keys().hasAll(['email', 'papel', 'donoUid', 'donoNome', 'criadoEm'])
+        && d.keys().hasOnly(['email', 'papel', 'donoUid', 'donoNome', 'criadoEm'])
+        && d.email == email
+        && email.matches('^[^@\\s]+@[^@\\s]+[.][^@\\s]+$')
+        && email != request.auth.token.get('email', '').lower()
+        && d.papel in ['leitura', 'edicao']
+        && d.donoUid == uid
+        && d.donoNome is string && d.donoNome.size() > 0 && d.donoNome.size() <= 100;
+    }
+
     function caminhoPerfil(uid) {
       return /databases/$(database)/documents/usuarios/$(uid);
     }
@@ -72,11 +106,22 @@ service cloud.firestore {
         && (!('criadoEm' in resource.data) || request.resource.data.criadoEm == resource.data.criadoEm);
       allow delete: if false;
 
+      // Pessoas com quem o dono compartilhou o estoque (ID do documento = e-mail em minúsculas).
+      match /acessos/{email} {
+        allow read: if dono(uid) || (emailVerificado() && email == request.auth.token.email.lower());
+        allow create: if dono(uid) && acessoValido(request.resource.data, uid, email)
+          && request.resource.data.criadoEm == request.time;
+        allow update: if dono(uid) && acessoValido(request.resource.data, uid, email)
+          && request.resource.data.criadoEm == resource.data.criadoEm;
+        // O dono remove o acesso; o convidado pode sair do estoque compartilhado.
+        allow delete: if dono(uid) || (emailVerificado() && email == request.auth.token.email.lower());
+      }
+
       match /produtos/{produtoId} {
-        allow read: if dono(uid);
+        allow read: if podeLer(uid);
 
         // Estoque inicial > 0 exige uma movimentação de entrada criada junto.
-        allow create: if dono(uid)
+        allow create: if podeEditar(uid)
           && produtoValido(request.resource.data)
           && request.resource.data.criadoEm == request.time
           && ((request.resource.data.quantidade == 0 && request.resource.data.ultimaMovimentacaoId == null)
@@ -84,21 +129,22 @@ service cloud.firestore {
               && movimentacaoNova(uid, request.resource.data.ultimaMovimentacaoId, produtoId)));
 
         // A quantidade só muda junto com o registro de uma movimentação.
-        allow update: if dono(uid)
+        allow update: if podeEditar(uid)
           && produtoValido(request.resource.data)
           && request.resource.data.criadoEm == resource.data.criadoEm
           && ((request.resource.data.quantidade == resource.data.quantidade
               && request.resource.data.ultimaMovimentacaoId == resource.data.ultimaMovimentacaoId)
             || movimentacaoNova(uid, request.resource.data.ultimaMovimentacaoId, produtoId));
 
-        // Produtos com movimentações não podem ser excluídos (preserva o histórico).
+        // Só o dono exclui, e só produtos sem movimentações (preserva o histórico).
         allow delete: if dono(uid) && resource.data.ultimaMovimentacaoId == null;
       }
 
       match /movimentacoes/{movId} {
-        allow read: if dono(uid);
+        allow read: if podeLer(uid);
 
-        allow create: if dono(uid)
+        // O responsável é sempre quem está logado (dono ou convidado com permissão de edição).
+        allow create: if podeEditar(uid)
           && request.resource.data.keys().hasAll(['produtoId', 'produtoNome', 'tipo', 'quantidade',
             'responsavel', 'responsavelUid', 'observacoes', 'data'])
           && request.resource.data.keys().hasOnly(['produtoId', 'produtoNome', 'tipo', 'quantidade',
@@ -107,13 +153,18 @@ service cloud.firestore {
           && request.resource.data.quantidade is int && request.resource.data.quantidade > 0
           && request.resource.data.observacoes is string && request.resource.data.observacoes.size() <= 1000
           && request.resource.data.responsavelUid == request.auth.uid
-          && request.resource.data.responsavel == get(caminhoPerfil(uid)).data.nome
+          && request.resource.data.responsavel == get(caminhoPerfil(request.auth.uid)).data.nome
           && request.resource.data.data == request.time
           && movimentacaoConsistente(uid, movId, request.resource.data);
 
         // Histórico é imutável.
         allow update, delete: if false;
       }
+    }
+
+    // Permite ao convidado descobrir quais estoques foram compartilhados com ele.
+    match /{caminho=**}/acessos/{email} {
+      allow read: if emailVerificado() && resource.data.email == request.auth.token.email.lower();
     }
   }
 }
