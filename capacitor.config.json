@@ -1,0 +1,8 @@
+{
+  "appId": "com.controleestoque.app",
+  "appName": "Controle de Estoque",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never"
+  }
+}

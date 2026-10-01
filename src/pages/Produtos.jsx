@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEstoque } from '../contexts/EstoqueContext';
 import { excluirProduto, observarProdutos } from '../services/estoque';
 import { formatarMoeda, mensagemErro } from '../utils';
@@ -14,6 +14,7 @@ export default function Produtos() {
   const [produtos, setProdutos] = useState(null);
   const [filtro, setFiltro] = useState('');
   const [mensagem, setMensagem] = useState(location.state?.mensagem ?? null);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
   useEffect(() => observarProdutos(
     setProdutos,
@@ -69,7 +70,18 @@ export default function Produtos() {
                   const critico = p.quantidade < p.estoqueMinimo;
                   return (
                     <tr key={p.id} className={critico ? 'baixo-estoque' : ''}>
-                      <td className="nome-produto">{p.nome}</td>
+                      <td className="nome-produto">
+                        <span className="celula-produto">
+                          {p.imagem ? (
+                            <button type="button" className="botao-foto" onClick={() => setFotoAmpliada(p.imagem)} aria-label={`Ampliar foto de ${p.nome}`}>
+                              <img src={p.imagem} alt="" className="produto-foto" />
+                            </button>
+                          ) : (
+                            <span className="produto-foto vazia"><Package size={18} /></span>
+                          )}
+                          {p.nome}
+                        </span>
+                      </td>
                       <td>{p.categoria || '—'}</td>
                       <td className="numero">{critico ? <span className="badge critico">{p.quantidade}</span> : p.quantidade}</td>
                       <td className="numero">{p.estoqueMinimo}</td>
@@ -100,6 +112,11 @@ export default function Produtos() {
           </div>
         )}
       </div>
+      {fotoAmpliada && (
+        <div className="modal-fundo" role="dialog" aria-modal="true" aria-label="Foto ampliada" onClick={() => setFotoAmpliada(null)}>
+          <img src={fotoAmpliada} alt="Foto do produto" className="foto-ampliada" />
+        </div>
+      )}
     </>
   );
 }

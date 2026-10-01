@@ -74,6 +74,20 @@ describe('serviço de estoque (fluxo real)', () => {
     expect(await buscarProduto(p.id)).toMatchObject({ nome: 'Borracha Branca', quantidade: 4, precoVenda: 2.5 });
   });
 
+  it('salva a imagem do produto e permite removê-la na edição', async () => {
+    const foto = 'data:image/jpeg;base64,/9j/exemplo';
+    await cadastrarProduto({ nome: 'Quadro', quantidade: '2', imagem: foto }, usuario);
+    const p = await produtoPorNome('Quadro');
+    expect(p.imagem).toBe(foto);
+    await atualizarProduto(p.id, { ...p, imagem: null });
+    expect((await buscarProduto(p.id)).imagem).toBeNull();
+  });
+
+  it('rejeita imagem acima do limite', async () => {
+    const gigante = `data:image/jpeg;base64,${'A'.repeat(900_001)}`;
+    await expect(cadastrarProduto({ nome: 'Pesado', quantidade: '0', imagem: gigante }, usuario)).rejects.toBeInstanceOf(ErroEstoque);
+  });
+
   it('impede código de barras duplicado', async () => {
     await cadastrarProduto({ nome: 'A', quantidade: '0', codigoBarras: '789' }, usuario);
     await expect(cadastrarProduto({ nome: 'B', quantidade: '0', codigoBarras: '789' }, usuario)).rejects.toThrow('código de barras');
@@ -179,7 +193,16 @@ describe('regras de segurança (tentativas maliciosas)', () => {
   it('nega criar produto com estoque sem movimentação', async () => {
     await assertFails(setDoc(doc(produtos()), {
       nome: 'Fantasma', descricao: '', categoria: '', codigoBarras: null, quantidade: 50, estoqueMinimo: 0,
-      precoCompra: 0, precoVenda: 0, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp(), ultimaMovimentacaoId: null,
+      precoCompra: 0, precoVenda: 0, imagem: null, criadoEm: serverTimestamp(), atualizadoEm: serverTimestamp(), ultimaMovimentacaoId: null,
+    }));
+  });
+
+  it('nega imagem maior que o permitido direto nas regras', async () => {
+    await assertFails(updateDoc(doc(produtos(), produtoId), {
+      imagem: `data:image/jpeg;base64,${'A'.repeat(900_001)}`, atualizadoEm: serverTimestamp(),
+    }));
+    await assertSucceeds(updateDoc(doc(produtos(), produtoId), {
+      imagem: 'data:image/jpeg;base64,/9j/foto', atualizadoEm: serverTimestamp(),
     }));
   });
 });

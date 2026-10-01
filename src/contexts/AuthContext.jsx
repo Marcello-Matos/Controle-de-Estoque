@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -8,6 +10,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -65,6 +68,13 @@ export function AuthProvider({ children }) {
 
   async function entrarComGoogle(lembrar = true) {
     await definirPersistencia(lembrar);
+    // No app nativo (iOS) popup não funciona na WebView: usa o login nativo do Google e converte em credencial do Firebase.
+    if (Capacitor.isNativePlatform()) {
+      const resultado = await FirebaseAuthentication.signInWithGoogle();
+      const credencial = GoogleAuthProvider.credential(resultado.credential?.idToken);
+      await signInWithCredential(auth, credencial);
+      return;
+    }
     await signInWithPopup(auth, new GoogleAuthProvider());
   }
 

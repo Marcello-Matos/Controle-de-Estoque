@@ -67,7 +67,7 @@ try {
       });
     }
     await gravar(`usuarios/${uid}/produtos/${id}`, {
-      nome, descricao: '', categoria, codigoBarras, quantidade, estoqueMinimo, precoCompra, precoVenda,
+      nome, descricao: '', categoria, codigoBarras, quantidade, estoqueMinimo, precoCompra, precoVenda, imagem: null,
       criadoEm: new Date(), atualizadoEm: new Date(), ultimaMovimentacaoId: ultima,
     });
   }

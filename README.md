@@ -47,6 +47,27 @@ npm run deploy     # build + Firebase Hosting + regras
 ```
 O endereço será `https://SEU-PROJETO.web.app`.
 
+## App iOS (Capacitor)
+O app web é empacotado como app nativo via Capacitor (`ios/` é o projeto Xcode, versionado no git).
+
+```bash
+npm run ios   # build + sincroniza dist/ -> ios/ e abre o Xcode
+npm run sync  # só build + sync (rode depois de mudar o código)
+```
+
+Para rodar/publicar, faltam passos no Firebase e no Xcode (uma única vez):
+
+1. **Registrar o app iOS no Firebase**: console do Firebase → configurações do projeto → "Adicionar app" → iOS, usando o bundle id `com.controleestoque.app` (definido em `capacitor.config.json`). Baixe o `GoogleService-Info.plist`.
+2. **Adicionar o plist no Xcode**: abra `ios/App/App.xcworkspace`, arraste o `GoogleService-Info.plist` para dentro da pasta `App` (marcando "Copy items if needed").
+3. **URL scheme do login Google**: no `GoogleService-Info.plist`, copie o valor `REVERSED_CLIENT_ID`. No Xcode, selecione o target App → aba "Info" → "URL Types" → adicione esse valor em "URL Schemes". (Sem isso, o botão "Entrar com Google" falha no app.)
+4. **Assinatura**: no Xcode, target App → "Signing & Capabilities" → selecione seu Time (Apple ID). Para publicar/TestFlight é preciso conta Apple Developer (US$ 99/ano).
+5. Rode num simulador ou iPhone pelo Xcode (▶). Para mudar o bundle id, edite `capacitor.config.json` e o projeto no Xcode.
+
+Observações:
+- Login Google no app usa o plugin nativo `@capacitor-firebase/authentication` (popup não funciona na WebView); e-mail/senha funciona sem config extra.
+- `sendEmailVerification`/`sendPasswordResetEmail` abrem links web — funcionam, mas o usuário volta ao app manualmente.
+- No iOS, o app acessa o Firebase de produção; emuladores não são usados no build do app.
+
 ## Desenvolvimento local sem Firebase real (emuladores)
 ```bash
 npm run emuladores                      # terminal 1 (UI em http://127.0.0.1:4000)
@@ -68,7 +89,7 @@ Todos os dados de uma conta ficam dentro do documento dela:
 | Caminho | Campos |
 |---|---|
 | `usuarios/{uid}` | `nome`, `email`, `criadoEm` (perfil, criado no primeiro acesso) |
-| `usuarios/{uid}/produtos/{id}` | `nome`, `descricao`, `categoria`, `codigoBarras`, `quantidade`, `estoqueMinimo`, `precoCompra`, `precoVenda`, `criadoEm`, `atualizadoEm`, `ultimaMovimentacaoId` |
+| `usuarios/{uid}/produtos/{id}` | `nome`, `descricao`, `categoria`, `codigoBarras`, `quantidade`, `estoqueMinimo`, `precoCompra`, `precoVenda`, `imagem` (data URL JPEG 480px ou `null`), `criadoEm`, `atualizadoEm`, `ultimaMovimentacaoId` |
 | `usuarios/{uid}/movimentacoes/{id}` | `produtoId`, `produtoNome`, `tipo` (`entrada`/`saida`), `quantidade`, `responsavel`, `responsavelUid`, `observacoes`, `data` |
 | `usuarios/{uid}/acessos/{email}` | `email`, `papel` (`leitura`/`edicao`), `donoUid`, `donoNome`, `criadoEm` (ID = e-mail em minúsculas) |
 

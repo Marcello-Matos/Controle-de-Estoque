@@ -34,6 +34,9 @@ const movimentacoesCol = () => collection(db, 'usuarios', uidAtual(), 'movimenta
 
 export const LIMITE_HISTORICO = 500;
 
+// A imagem é um data URL JPEG salvo no próprio documento (limite do Firestore: 1 MB/doc).
+export const LIMITE_IMAGEM = 900_000;
+
 export class ErroEstoque extends Error {}
 
 function lerProduto(snap) {
@@ -49,6 +52,7 @@ function normalizarProduto(dados) {
     estoqueMinimo: parseInt(dados.estoqueMinimo, 10) || 0,
     precoCompra: parseFloat(dados.precoCompra) || 0,
     precoVenda: parseFloat(dados.precoVenda) || 0,
+    imagem: typeof dados.imagem === 'string' ? dados.imagem : null,
   };
 }
 
@@ -56,6 +60,9 @@ function validarProduto(p, quantidade = 0) {
   if (!p.nome) throw new ErroEstoque('O nome do produto é obrigatório.');
   if (quantidade < 0 || p.estoqueMinimo < 0 || p.precoCompra < 0 || p.precoVenda < 0) {
     throw new ErroEstoque('Quantidades e preços não podem ser negativos.');
+  }
+  if (p.imagem && p.imagem.length > LIMITE_IMAGEM) {
+    throw new ErroEstoque('A imagem ficou grande demais. Tente outra foto.');
   }
 }
 

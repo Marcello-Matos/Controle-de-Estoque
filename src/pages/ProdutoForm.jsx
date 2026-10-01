@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { atualizarProduto, buscarProduto, cadastrarProduto } from '../services/estoque';
+import { lerArquivoImagem } from '../imagem';
 import { mensagemErro } from '../utils';
-import { ArrowLeft, PackagePlus, Save } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Package, PackagePlus, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import EditorImagem from '../components/EditorImagem';
 import Mensagem from '../components/Mensagem';
 import PaginaTopo from '../components/PaginaTopo';
 
 const VAZIO = {
   nome: '', descricao: '', categoria: '', codigoBarras: '',
-  quantidade: '', estoqueMinimo: '', precoCompra: '', precoVenda: '',
+  quantidade: '', estoqueMinimo: '', precoCompra: '', precoVenda: '', imagem: null,
 };
 
 export default function ProdutoForm() {
@@ -21,6 +23,8 @@ export default function ProdutoForm() {
   const [carregando, setCarregando] = useState(editando);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
+  const [ajustandoImagem, setAjustandoImagem] = useState(null);
+  const inputImagem = useRef(null);
 
   useEffect(() => {
     if (!editando) {
@@ -33,7 +37,7 @@ export default function ProdutoForm() {
           navigate('/produtos', { state: { mensagem: { texto: 'Produto não encontrado.', sucesso: false } } });
           return;
         }
-        setForm({ ...p, codigoBarras: p.codigoBarras ?? '' });
+        setForm({ ...p, codigoBarras: p.codigoBarras ?? '', imagem: p.imagem ?? null });
         setCarregando(false);
       })
       .catch((e) => setMensagem({ texto: mensagemErro(e), sucesso: false }));
@@ -44,6 +48,17 @@ export default function ProdutoForm() {
     value: form[nome],
     onChange: (e) => setForm({ ...form, [nome]: e.target.value }),
   });
+
+  async function escolherImagem(e) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!arquivo) return;
+    try {
+      setAjustandoImagem(await lerArquivoImagem(arquivo));
+    } catch (err) {
+      setMensagem({ texto: mensagemErro(err), sucesso: false });
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -76,6 +91,32 @@ export default function ProdutoForm() {
       <Mensagem mensagem={mensagem} />
       <form onSubmit={handleSubmit} className="card">
         <div className="form-grid">
+          <div className="inteiro">
+            <span className="rotulo">Foto do produto</span>
+            <div className="imagem-campo">
+              {form.imagem ? (
+                <img src={form.imagem} alt="Foto do produto" className="produto-foto grande" />
+              ) : (
+                <span className="produto-foto grande vazia"><Package size={34} /></span>
+              )}
+              <div className="imagem-acoes">
+                <button type="button" className="secondary-btn" onClick={() => inputImagem.current?.click()}>
+                  <ImagePlus size={17} /> {form.imagem ? 'Trocar imagem' : 'Escolher imagem'}
+                </button>
+                {form.imagem && (
+                  <>
+                    <button type="button" className="secondary-btn" onClick={() => setAjustandoImagem(form.imagem)}>
+                      <SlidersHorizontal size={17} /> Ajustar
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => setForm({ ...form, imagem: null })}>
+                      <Trash2 size={17} /> Remover
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <input ref={inputImagem} type="file" accept="image/*" hidden onChange={escolherImagem} />
+          </div>
           <label className="inteiro">Nome<input type="text" maxLength={150} required placeholder="Ex.: Notebook Pro 14" {...campo('nome')} /></label>
           <label className="inteiro">Descrição<textarea maxLength={2000} placeholder="Detalhes do produto (opcional)" {...campo('descricao')} /></label>
           <label>Categoria<input type="text" maxLength={100} placeholder="Ex.: Informática" {...campo('categoria')} /></label>
@@ -100,6 +141,13 @@ export default function ProdutoForm() {
           {editando && <Link to="/produtos" className="secondary-btn"><ArrowLeft size={18} /> Voltar à lista</Link>}
         </div>
       </form>
+      {ajustandoImagem && (
+        <EditorImagem
+          imagem={ajustandoImagem}
+          onConfirmar={(imagem) => { setForm({ ...form, imagem }); setAjustandoImagem(null); }}
+          onCancelar={() => setAjustandoImagem(null)}
+        />
+      )}
     </>
   );
 }

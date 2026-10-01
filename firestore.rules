@@ -71,13 +71,14 @@ service cloud.firestore {
 
     function produtoValido(d) {
       return d.keys().hasAll(['nome', 'descricao', 'categoria', 'codigoBarras', 'quantidade',
-          'estoqueMinimo', 'precoCompra', 'precoVenda', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
+          'estoqueMinimo', 'precoCompra', 'precoVenda', 'imagem', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
         && d.keys().hasOnly(['nome', 'descricao', 'categoria', 'codigoBarras', 'quantidade',
-          'estoqueMinimo', 'precoCompra', 'precoVenda', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
+          'estoqueMinimo', 'precoCompra', 'precoVenda', 'imagem', 'criadoEm', 'atualizadoEm', 'ultimaMovimentacaoId'])
         && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 150
         && d.descricao is string && d.descricao.size() <= 2000
         && d.categoria is string && d.categoria.size() <= 100
         && (d.codigoBarras == null || (d.codigoBarras is string && d.codigoBarras.size() <= 50))
+        && (d.imagem == null || (d.imagem is string && d.imagem.size() <= 900000))
         && d.quantidade is int && d.quantidade >= 0
         && d.estoqueMinimo is int && d.estoqueMinimo >= 0
         && d.precoCompra is number && d.precoCompra >= 0
