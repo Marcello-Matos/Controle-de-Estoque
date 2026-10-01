@@ -252,6 +252,22 @@ button:disabled {
   background: var(--degrade);
   color: #fff;
   font-weight: 700;
+  object-fit: cover;
+}
+
+.usuario-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .usuario-info {
@@ -990,6 +1006,10 @@ td.vazio {
   width: 96px;
   height: 96px;
   border-radius: var(--raio);
+}
+
+.redonda {
+  border-radius: 50%;
 }
 
 .imagem-campo {

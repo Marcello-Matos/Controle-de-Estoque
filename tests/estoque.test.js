@@ -312,3 +312,15 @@ describe('compartilhamento de estoque', () => {
     await expect(excluirProduto({ id: produtoId, ultimaMovimentacaoId: null })).rejects.toThrow();
   });
 });
+
+describe('foto no perfil do usuário', () => {
+  it('salva e remove a foto do perfil e rejeita imagem grande demais', async () => {
+    const db = testEnv.authenticatedContext(usuario.uid).firestore();
+    const ref = doc(db, 'usuarios', usuario.uid);
+    await assertSucceeds(updateDoc(ref, { foto: 'data:image/jpeg;base64,/9j/perfil' }));
+    const salvo = await getDoc(ref);
+    expect(salvo.data().foto).toBe('data:image/jpeg;base64,/9j/perfil');
+    await assertSucceeds(updateDoc(ref, { foto: null }));
+    await assertFails(updateDoc(ref, { foto: 'x'.repeat(900001) }));
+  });
+});

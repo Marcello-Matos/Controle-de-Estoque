@@ -59,11 +59,17 @@ export default function Layout() {
         </nav>
         <TemaToggle className="nav-botao" comTexto />
         <div className="usuario-box">
-          <div className="avatar">{usuario.nome.charAt(0).toUpperCase()}</div>
-          <div className="usuario-info">
-            <strong>{usuario.nome}</strong>
-            <small>{usuario.email}</small>
-          </div>
+          <button type="button" className="usuario-link" onClick={() => navigate('/perfil')} title="Editar perfil">
+            {usuario.foto ? (
+              <img src={usuario.foto} alt="" className="avatar" />
+            ) : (
+              <div className="avatar">{usuario.nome.charAt(0).toUpperCase()}</div>
+            )}
+            <div className="usuario-info">
+              <strong>{usuario.nome}</strong>
+              <small>{usuario.email}</small>
+            </div>
+          </button>
           <button type="button" className="botao-icone" onClick={sair} aria-label="Sair" title="Sair">
             <LogOut size={18} />
           </button>

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Check, X, ZoomIn } from 'lucide-react';
-import { recortarImagem } from '../imagem';
+import { recortarImagem, TAMANHO_IMAGEM } from '../imagem';
 import { mensagemErro } from '../utils';
 import Mensagem from './Mensagem';
 
-export default function EditorImagem({ imagem, onConfirmar, onCancelar }) {
+export default function EditorImagem({ imagem, onConfirmar, onCancelar, tamanho = TAMANHO_IMAGEM }) {
   const [posicao, setPosicao] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState(null);
@@ -16,7 +16,7 @@ export default function EditorImagem({ imagem, onConfirmar, onCancelar }) {
     if (!area) return;
     setProcessando(true);
     try {
-      onConfirmar(await recortarImagem(imagem, area));
+      onConfirmar(await recortarImagem(imagem, area, tamanho));
     } catch (e) {
       setMensagem({ texto: mensagemErro(e), sucesso: false });
       setProcessando(false);

@@ -5,6 +5,9 @@ import { ErroEstoque } from './services/estoque';
 // o arquivo na faixa de 40–150 KB.
 export const TAMANHO_IMAGEM = 480;
 
+// A foto do perfil aparece em tamanhos pequenos (avatar): recorte menor economiza espaço no documento.
+export const TAMANHO_PERFIL = 256;
+
 const LIMITE_ARQUIVO = 15 * 1024 * 1024;
 
 export function lerArquivoImagem(arquivo) {
@@ -34,15 +37,15 @@ function carregarImagem(src) {
 }
 
 // Recorta a área escolhida (coordenadas em pixels da imagem original) e devolve
-// um data URL JPEG quadrado, pronto para salvar no produto.
-export async function recortarImagem(src, area) {
+// um data URL JPEG quadrado, pronto para salvar no documento.
+export async function recortarImagem(src, area, tamanho = TAMANHO_IMAGEM) {
   const img = await carregarImagem(src);
   const canvas = document.createElement('canvas');
-  canvas.width = TAMANHO_IMAGEM;
-  canvas.height = TAMANHO_IMAGEM;
+  canvas.width = tamanho;
+  canvas.height = tamanho;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, TAMANHO_IMAGEM, TAMANHO_IMAGEM);
-  ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, TAMANHO_IMAGEM, TAMANHO_IMAGEM);
+  ctx.fillRect(0, 0, tamanho, tamanho);
+  ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, tamanho, tamanho);
   return canvas.toDataURL('image/jpeg', 0.82);
 }

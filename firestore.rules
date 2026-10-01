@@ -56,8 +56,9 @@ service cloud.firestore {
 
     function perfilValido(d) {
       return d.keys().hasAll(['nome'])
-        && d.keys().hasOnly(['nome', 'email', 'criadoEm'])
+        && d.keys().hasOnly(['nome', 'email', 'foto', 'criadoEm'])
         && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 100
+        && (!('foto' in d) || d.foto == null || (d.foto is string && d.foto.size() <= 900000))
         && (!('email' in d) || d.email == null || d.email is string);
     }
 

@@ -9,6 +9,7 @@ import ProdutoForm from './pages/ProdutoForm';
 import Movimentar from './pages/Movimentar';
 import Historico from './pages/Historico';
 import Compartilhar from './pages/Compartilhar';
+import Perfil from './pages/Perfil';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/movimentar" element={<ExigeEdicao><Movimentar /></ExigeEdicao>} />
         <Route path="/historico" element={<Historico />} />
         <Route path="/compartilhar" element={<ExigeDono><Compartilhar /></ExigeDono>} />
+        <Route path="/perfil" element={<Perfil />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

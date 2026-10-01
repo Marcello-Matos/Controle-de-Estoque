@@ -16,7 +16,7 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
@@ -48,7 +48,10 @@ export function AuthProvider({ children }) {
       try {
         const perfil = await carregarPerfil(user, nomePendente.current);
         nomePendente.current = null;
-        setUsuario({ uid: user.uid, email: user.email, nome: perfil.nome, emailVerificado: user.emailVerified });
+        setUsuario({
+          uid: user.uid, email: user.email, nome: perfil.nome, foto: perfil.foto ?? null,
+          emailVerificado: user.emailVerified,
+        });
       } catch (erro) {
         console.error(erro);
         await signOut(auth);
@@ -89,6 +92,12 @@ export function AuthProvider({ children }) {
 
   const reenviarVerificacao = () => sendEmailVerification(auth.currentUser);
 
+  // Salva nome e/ou foto do perfil em /usuarios/{uid} e reflete no estado local.
+  async function atualizarPerfil(dados) {
+    await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), dados);
+    setUsuario((atual) => ({ ...atual, ...dados }));
+  }
+
   // Depois de clicar no link do e-mail, recarrega a conta e renova o token para as regras reconhecerem.
   async function confirmarVerificacao() {
     await auth.currentUser.reload();
@@ -104,7 +113,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ usuario, carregando, entrar, entrarComGoogle, criarConta, recuperarSenha, reenviarVerificacao, confirmarVerificacao, sair }}
+      value={{ usuario, carregando, entrar, entrarComGoogle, criarConta, recuperarSenha, reenviarVerificacao, confirmarVerificacao, atualizarPerfil, sair }}
     >
       {children}
     </AuthContext.Provider>
