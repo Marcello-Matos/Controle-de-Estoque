@@ -64,9 +64,23 @@ export function AuthProvider({ children }) {
   const definirPersistencia = (lembrar) =>
     setPersistence(auth, lembrar ? browserLocalPersistence : browserSessionPersistence);
 
+  // Repete uma vez quando a rede falha no meio (ex.: HTTP/3 quebrado no simulador ou sinal instável):
+  // a segunda tentativa costuma sair por HTTP/2 e funciona.
+  async function comRepeticaoEmFalhaDeRede(operacao) {
+    try {
+      return await operacao();
+    } catch (erro) {
+      if (erro?.code === 'auth/network-request-failed') {
+        await new Promise((r) => setTimeout(r, 800));
+        return await operacao();
+      }
+      throw erro;
+    }
+  }
+
   async function entrar(email, senha, lembrar = true) {
     await definirPersistencia(lembrar);
-    await signInWithEmailAndPassword(auth, email, senha);
+    await comRepeticaoEmFalhaDeRede(() => signInWithEmailAndPassword(auth, email, senha));
   }
 
   async function entrarComGoogle(lembrar = true) {
@@ -83,7 +97,7 @@ export function AuthProvider({ children }) {
 
   async function criarConta(nome, email, senha) {
     nomePendente.current = nome;
-    const { user } = await createUserWithEmailAndPassword(auth, email, senha);
+    const { user } = await comRepeticaoEmFalhaDeRede(() => createUserWithEmailAndPassword(auth, email, senha));
     await updateProfile(user, { displayName: nome });
     await sendEmailVerification(user).catch((erro) => console.error(erro));
   }
